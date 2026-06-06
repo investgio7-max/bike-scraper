@@ -1,49 +1,25 @@
 #!/bin/bash
 
 echo "🚀 Starting Bike Scraper on Railway..."
+echo "✅ Dependencies already installed by Railway"
 
-# Install dependencies
-echo "📦 Installing dependencies..."
-pip3 install -r requirements.txt
+# Run the application
+exec python -m uvicorn bike_scraper.api_main:app --host 0.0.0.0 --port $PORT &
 
-# Initialize database
-echo "💾 Initializing database..."
-python3 bike_scraper/init_project.py
-
-# Start the application
-echo "✨ Starting FastAPI + Scheduler..."
-python3 << 'PYTHON_END'
-import os
-import sys
-
-# Start API and Scheduler
-import subprocess
-import threading
+# Also run scheduler
+python << 'EOF'
 import time
+import sys
+from bike_scraper.scheduler import BikeScraperScheduler
 
-def start_api():
-    print("🌐 Starting FastAPI API on port 3000...")
-    os.system('python3 -m uvicorn bike_scraper.api_main:app --host 0.0.0.0 --port 3000')
-
-def start_scheduler():
-    print("⏰ Starting Scheduler (every 10 minutes)...")
-    time.sleep(5)  # Give API time to start
-    from bike_scraper.scheduler import BikeScraperScheduler
-    try:
-        scheduler = BikeScraperScheduler()
-        scheduler.run()
-    except Exception as e:
-        print(f"Scheduler error: {e}")
-
-api_thread = threading.Thread(target=start_api, daemon=False)
-scheduler_thread = threading.Thread(target=start_scheduler, daemon=True)
-
-api_thread.start()
-scheduler_thread.start()
-
-# Keep running
+print("⏰ Starting Scheduler...")
 try:
-    api_thread.join()
+    scheduler = BikeScraperScheduler()
+    scheduler.run()
 except KeyboardInterrupt:
-    print("\n⏹️ Shutting down...")
-PYTHON_END
+    print("Scheduler stopped")
+    sys.exit(0)
+except Exception as e:
+    print(f"Scheduler error: {e}")
+    sys.exit(1)
+EOF

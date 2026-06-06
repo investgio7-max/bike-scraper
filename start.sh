@@ -2,6 +2,7 @@
 
 echo "🚀 Starting Bike Scraper on Railway..."
 echo "✅ Dependencies already installed by Railway"
+echo "🔧 Using python3 for all processes"
 
 # Start Telegram bot in background
 python3 << 'EOF' &

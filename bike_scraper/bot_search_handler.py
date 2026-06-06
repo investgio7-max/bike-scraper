@@ -1,6 +1,6 @@
 """Search handler for Telegram bot - integrates with Wallapop scraper"""
 from typing import List
-from bike_scraper.scraper_wallapop_curl import WallapopScraperCurl
+from bike_scraper.scraper_wallapop_smart import WallapopScraperSmart
 from bike_scraper.utils_logger import get_logger
 
 logger = get_logger('bot_search')
@@ -8,13 +8,13 @@ logger = get_logger('bot_search')
 
 def search_bikes(search_term: str, max_results: int = 10) -> List[dict]:
     """
-    Search for bikes on Wallapop using curl_cffi (lightweight, no browser)
+    Search for bikes on Wallapop (tries CloakBrowser first, falls back to curl_cffi)
     Returns list of listings with price, location, etc.
     """
     try:
         logger.info(f"🔍 Searching for: {search_term}")
 
-        scraper = WallapopScraperCurl()
+        scraper = WallapopScraperSmart()
         listings = scraper.search(search_term, max_results=max_results)
         scraper.close()
 

@@ -262,3 +262,67 @@ class PriceAnalysis(Base):
     __table_args__ = (
         UniqueConstraint('brand', 'model', 'bike_type', 'period_start', name='uq_analysis_period'),
     )
+
+
+class MonitoringSearch(Base):
+    """Активные поиски пользователей для мониторинга"""
+    __tablename__ = 'monitoring_searches'
+
+    id = Column(Integer, primary_key=True)
+
+    # Пользователь (Telegram ID)
+    user_id = Column(Integer, index=True)
+
+    # Поисковый запрос
+    search_term = Column(String(255), index=True)
+
+    # Параметры уведомлений
+    is_active = Column(Boolean, default=True, index=True)
+    notify_new_listings = Column(Boolean, default=True)
+    notify_price_drop = Column(Boolean, default=True)
+    price_drop_threshold = Column(Float)  # Оповещение если цена упала на X EUR
+
+    # Статистика
+    listings_found = Column(Integer, default=0)
+    last_listing_id = Column(UUID(as_uuid=True))  # ID последнего найденного объявления
+    last_checked = Column(DateTime, default=datetime.utcnow)
+
+    # Метаданные
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    __table_args__ = (
+        Index('idx_monitoring_user_active', 'user_id', 'is_active'),
+        Index('idx_monitoring_search_term', 'search_term'),
+    )
+
+
+class ListingNotification(Base):
+    """Отслеживание отправленных уведомлений"""
+    __tablename__ = 'listing_notifications'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Уведомление
+    user_id = Column(Integer, index=True)
+    search_id = Column(Integer)
+    listing_id = Column(UUID(as_uuid=True), index=True)
+    notification_type = Column(String(50))  # new_listing, price_drop
+
+    # Статус
+    is_sent = Column(Boolean, default=False)
+    sent_at = Column(DateTime)
+
+    # Данные объявления при отправке
+    title = Column(String(255))
+    price = Column(Float)
+    url = Column(Text)
+    previous_price = Column(Float)  # Для price_drop уведомлений
+
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = (
+        Index('idx_notification_user', 'user_id'),
+        Index('idx_notification_listing', 'listing_id'),
+        Index('idx_notification_sent', 'is_sent'),
+    )

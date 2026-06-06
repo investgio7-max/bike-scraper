@@ -8,14 +8,23 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from uuid import UUID
 import json
+import os
+import asyncio
+from threading import Thread
 
 from bike_scraper.database import init_db, get_db, get_session
-from bike_scraper.models import Listing, ScraperLog, SellerProfile
+from bike_scraper.models import Listing, ScraperLog, SellerProfile, MonitoringSearch
 from bike_scraper.service_listings import ListingService
 from bike_scraper.config import API_HOST, API_PORT
 from bike_scraper.utils_logger import get_logger
+from bike_scraper.telegram_bot import create_telegram_bot
+from bike_scraper.notification_handler import run_notification_service
 
 logger = get_logger('api')
+
+# Глобальные переменные для Telegram бота
+telegram_bot = None
+notification_task = None
 
 app = FastAPI(
     title="Bike Scraper API",
@@ -31,14 +40,48 @@ app = FastAPI(
 @app.on_event("startup")
 async def startup():
     """Инициализация при запуске"""
+    global telegram_bot, notification_task
+
     logger.info("🚀 Запускаю API...")
     init_db()
+
+    # Инициализируем Telegram бота если есть токен
+    telegram_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    if telegram_token:
+        try:
+            telegram_bot = create_telegram_bot(telegram_token)
+            await telegram_bot.setup()
+            logger.info("✅ Telegram бот инициализирован")
+
+            # Запускаем бота асинхронно
+            asyncio.create_task(telegram_bot.run())
+
+            # Запускаем сервис уведомлений в отдельном потоке
+            notification_task = Thread(
+                target=lambda: asyncio.run(run_notification_service(telegram_token)),
+                daemon=True
+            )
+            notification_task.start()
+            logger.info("✅ Сервис уведомлений запущен")
+
+        except Exception as e:
+            logger.warning(f"⚠️ Telegram бот не инициализирован: {e}")
+    else:
+        logger.info("ℹ️ TELEGRAM_BOT_TOKEN не установлен, бот отключен")
 
 
 @app.on_event("shutdown")
 async def shutdown():
     """Очистка при остановке"""
+    global telegram_bot
+
     logger.info("⏹️  Останавливаю API...")
+    if telegram_bot:
+        try:
+            await telegram_bot.stop()
+            logger.info("✅ Telegram бот остановлен")
+        except Exception as e:
+            logger.warning(f"⚠️ Ошибка остановки бота: {e}")
 
 
 # =====================
@@ -302,6 +345,125 @@ async def search_listings(
     ).limit(limit).all()
 
     return listings
+
+
+# =====================
+# ROUTES - MONITORING
+# =====================
+
+@app.post("/monitoring/add-search", tags=["Monitoring"])
+async def add_monitoring_search(
+    user_id: int,
+    search_term: str,
+    price_drop_threshold: Optional[float] = None,
+    db: Session = Depends(get_db)
+):
+    """Добавить поиск для мониторинга"""
+    try:
+        # Проверяем что такого поиска еще нет
+        existing = db.query(MonitoringSearch).filter(
+            MonitoringSearch.user_id == user_id,
+            MonitoringSearch.search_term == search_term,
+            MonitoringSearch.is_active == True
+        ).first()
+
+        if existing:
+            return {"status": "exists", "message": f"Поиск '{search_term}' уже активен"}
+
+        # Создаем новый поиск
+        search = MonitoringSearch(
+            user_id=user_id,
+            search_term=search_term,
+            price_drop_threshold=price_drop_threshold or 50.0,
+            is_active=True
+        )
+        db.add(search)
+        db.commit()
+
+        return {
+            "status": "created",
+            "search_id": search.id,
+            "search_term": search.search_term,
+            "message": f"Поиск '{search_term}' добавлен"
+        }
+
+    except Exception as e:
+        logger.error(f"Error adding search: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/monitoring/searches", tags=["Monitoring"])
+async def list_monitoring_searches(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    """Получить список активных поисков пользователя"""
+    searches = db.query(MonitoringSearch).filter(
+        MonitoringSearch.user_id == user_id,
+        MonitoringSearch.is_active == True
+    ).all()
+
+    return {
+        "user_id": user_id,
+        "searches": [
+            {
+                "id": s.id,
+                "search_term": s.search_term,
+                "listings_found": s.listings_found,
+                "price_drop_threshold": s.price_drop_threshold,
+                "created_at": s.created_at,
+                "last_checked": s.last_checked
+            }
+            for s in searches
+        ]
+    }
+
+
+@app.delete("/monitoring/searches/{search_id}", tags=["Monitoring"])
+async def remove_monitoring_search(
+    search_id: int,
+    db: Session = Depends(get_db)
+):
+    """Удалить поиск для мониторинга"""
+    try:
+        search = db.query(MonitoringSearch).filter(
+            MonitoringSearch.id == search_id
+        ).first()
+
+        if not search:
+            raise HTTPException(status_code=404, detail="Поиск не найден")
+
+        search.is_active = False
+        db.commit()
+
+        return {
+            "status": "deleted",
+            "search_term": search.search_term,
+            "message": f"Поиск '{search.search_term}' удален"
+        }
+
+    except Exception as e:
+        logger.error(f"Error removing search: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/monitoring/status", tags=["Monitoring"])
+async def monitoring_status(db: Session = Depends(get_db)):
+    """Статус системы мониторинга"""
+    global telegram_bot
+
+    active_searches = db.query(MonitoringSearch).filter(
+        MonitoringSearch.is_active == True
+    ).count()
+
+    total_users = db.query(MonitoringSearch.user_id).distinct().count()
+
+    return {
+        "bot_status": "online" if telegram_bot else "offline",
+        "active_searches": active_searches,
+        "total_users": total_users,
+        "timestamp": datetime.utcnow()
+    }
 
 
 # =====================

@@ -6,9 +6,10 @@ echo "📍 Working directory: $(pwd)"
 
 # Kill any existing python processes running the bot (avoid conflicts)
 echo "🔪 Killing old bot processes..."
-pkill -f "run_bot.py" || true
-pkill -f "telegram_bot" || true
-sleep 1
+pkill -9 -f "run_bot.py" || true
+pkill -9 -f "telegram_bot" || true
+pkill -9 python3 || true  # Kill all python3 processes as last resort
+sleep 2
 
 echo "📄 Files present:"
 ls -la run_bot.py 2>&1 || echo "❌ run_bot.py not found!"

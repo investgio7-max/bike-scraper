@@ -4,7 +4,7 @@ echo "🚀 Starting Bike Scraper on Railway..."
 echo "✅ Dependencies already installed by Railway"
 
 # Start scheduler in background
-python << 'EOF' &
+python3 << 'EOF' &
 import time
 import sys
 from bike_scraper.scheduler import BikeScraperScheduler
@@ -22,4 +22,4 @@ except Exception as e:
 EOF
 
 # Run API in foreground (this is what Railway waits for)
-exec python -m uvicorn bike_scraper.api_main:app --host 0.0.0.0 --port $PORT
+exec python3 -m uvicorn bike_scraper.api_main:app --host 0.0.0.0 --port $PORT

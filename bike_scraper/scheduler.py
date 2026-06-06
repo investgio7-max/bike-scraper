@@ -32,6 +32,10 @@ class BikeScraperScheduler:
             'last_run': None
         }
 
+    def run(self):
+        """Запустить планировщик (alias для start)"""
+        self.start()
+
     def start(self):
         """Запустить планировщик"""
         logger.info(f"🚀 Запускаю планировщик (интервал: {SCRAPE_INTERVAL}с)")

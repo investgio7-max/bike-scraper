@@ -8,23 +8,14 @@ from typing import List, Optional
 from datetime import datetime, timedelta
 from uuid import UUID
 import json
-import os
-import asyncio
-from threading import Thread
 
 from bike_scraper.database import init_db, get_db, get_session
 from bike_scraper.models import Listing, ScraperLog, SellerProfile, MonitoringSearch
 from bike_scraper.service_listings import ListingService
 from bike_scraper.config import API_HOST, API_PORT
 from bike_scraper.utils_logger import get_logger
-from bike_scraper.telegram_bot import create_telegram_bot
-from bike_scraper.notification_handler import run_notification_service
 
 logger = get_logger('api')
-
-# Глобальные переменные для Telegram бота
-telegram_bot = None
-notification_task = None
 
 app = FastAPI(
     title="Bike Scraper API",
@@ -40,48 +31,15 @@ app = FastAPI(
 @app.on_event("startup")
 async def startup():
     """Инициализация при запуске"""
-    global telegram_bot, notification_task
-
     logger.info("🚀 Запускаю API...")
     init_db()
-
-    # Инициализируем Telegram бота если есть токен
-    telegram_token = os.getenv('TELEGRAM_BOT_TOKEN')
-    if telegram_token:
-        try:
-            telegram_bot = create_telegram_bot(telegram_token)
-            await telegram_bot.setup()
-            logger.info("✅ Telegram бот инициализирован")
-
-            # Запускаем бота асинхронно
-            asyncio.create_task(telegram_bot.run())
-
-            # Запускаем сервис уведомлений в отдельном потоке
-            notification_task = Thread(
-                target=lambda: asyncio.run(run_notification_service(telegram_token)),
-                daemon=True
-            )
-            notification_task.start()
-            logger.info("✅ Сервис уведомлений запущен")
-
-        except Exception as e:
-            logger.warning(f"⚠️ Telegram бот не инициализирован: {e}")
-    else:
-        logger.info("ℹ️ TELEGRAM_BOT_TOKEN не установлен, бот отключен")
+    logger.info("✅ API инициализирован")
 
 
 @app.on_event("shutdown")
 async def shutdown():
     """Очистка при остановке"""
-    global telegram_bot
-
     logger.info("⏹️  Останавливаю API...")
-    if telegram_bot:
-        try:
-            await telegram_bot.stop()
-            logger.info("✅ Telegram бот остановлен")
-        except Exception as e:
-            logger.warning(f"⚠️ Ошибка остановки бота: {e}")
 
 
 # =====================
@@ -450,8 +408,6 @@ async def remove_monitoring_search(
 @app.get("/monitoring/status", tags=["Monitoring"])
 async def monitoring_status(db: Session = Depends(get_db)):
     """Статус системы мониторинга"""
-    global telegram_bot
-
     active_searches = db.query(MonitoringSearch).filter(
         MonitoringSearch.is_active == True
     ).count()
@@ -459,7 +415,7 @@ async def monitoring_status(db: Session = Depends(get_db)):
     total_users = db.query(MonitoringSearch.user_id).distinct().count()
 
     return {
-        "bot_status": "online" if telegram_bot else "offline",
+        "bot_status": "running",
         "active_searches": active_searches,
         "total_users": total_users,
         "timestamp": datetime.utcnow()

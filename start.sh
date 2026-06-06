@@ -4,12 +4,19 @@ echo "🚀 Starting Bike Scraper on Railway... (v3)"
 echo "🔧 Using python3"
 echo "📍 Working directory: $(pwd)"
 
-# Kill any existing python processes running the bot (avoid conflicts)
+# Kill any existing bot processes (avoid conflicts)
 echo "🔪 Killing old bot processes..."
-pkill -9 -f "run_bot.py" || true
-pkill -9 -f "telegram_bot" || true
-pkill -9 python3 || true  # Kill all python3 processes as last resort
-sleep 2
+# Use precise killing - find PID and kill only that process
+PIDS=$(pgrep -f "run_bot.py" || true)
+if [ ! -z "$PIDS" ]; then
+    echo "Found old bot PID(s): $PIDS, killing..."
+    kill -9 $PIDS || true
+    sleep 1
+fi
+
+# Double check with ps
+ps aux | grep "run_bot" | grep -v grep || echo "No old processes found"
+sleep 1
 
 echo "📄 Files present:"
 ls -la run_bot.py 2>&1 || echo "❌ run_bot.py not found!"

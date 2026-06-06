@@ -4,8 +4,8 @@
 
 import re
 from typing import Optional, Dict
-from config import BIKE_BRANDS, BIKE_GROUPSETS, BIKE_TYPES
-from utils_logger import get_logger
+from bike_scraper.config import BIKE_BRANDS, BIKE_GROUPSETS, BIKE_TYPES
+from bike_scraper.utils_logger import get_logger
 
 logger = get_logger(__name__)
 

@@ -7,8 +7,8 @@ from sqlalchemy.orm import sessionmaker, Session
 from contextlib import contextmanager
 import logging
 
-from config import DATABASE_URL, DEBUG
-from models import Base
+from bike_scraper.config import DATABASE_URL, DEBUG
+from bike_scraper.models import Base
 
 logger = logging.getLogger(__name__)
 

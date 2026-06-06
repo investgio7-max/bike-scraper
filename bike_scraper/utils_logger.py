@@ -5,7 +5,7 @@
 import logging
 import logging.handlers
 from pathlib import Path
-from config import LOG_LEVEL, LOG_FILE
+from bike_scraper.config import LOG_LEVEL, LOG_FILE
 
 # Создаем папку для логов
 log_dir = Path(LOG_FILE).parent

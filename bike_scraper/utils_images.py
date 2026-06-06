@@ -10,8 +10,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 from curl_cffi.requests import Session
 
-from config import IMAGES_DIR, MAX_IMAGE_SIZE_MB, DOWNLOAD_IMAGES
-from utils_logger import get_logger
+from bike_scraper.config import IMAGES_DIR, MAX_IMAGE_SIZE_MB, DOWNLOAD_IMAGES
+from bike_scraper.utils_logger import get_logger
 
 logger = get_logger(__name__)
 

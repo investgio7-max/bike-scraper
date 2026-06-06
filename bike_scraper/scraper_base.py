@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from curl_cffi.requests import Session
 import random
 
-from config import USER_AGENTS, REQUEST_TIMEOUT, USE_PROXIES, PROXIES_LIST
-from utils_logger import get_logger
+from bike_scraper.config import USER_AGENTS, REQUEST_TIMEOUT, USE_PROXIES, PROXIES_LIST
+from bike_scraper.utils_logger import get_logger
 
 logger = get_logger(__name__)
 

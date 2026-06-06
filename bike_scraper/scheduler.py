@@ -7,12 +7,12 @@ import time
 from datetime import datetime
 from typing import List
 
-from config import SCRAPE_INTERVAL, SEARCH_TERMS, MAX_RESULTS
-from database import get_session
-from scraper_wallapop import create_wallapop_scraper
-from service_listings import ListingService
-from utils_images import ImageDownloader
-from utils_logger import get_logger
+from bike_scraper.config import SCRAPE_INTERVAL, SEARCH_TERMS, MAX_RESULTS
+from bike_scraper.database import get_session
+from bike_scraper.scraper_wallapop import create_wallapop_scraper
+from bike_scraper.service_listings import ListingService
+from bike_scraper.utils_images import ImageDownloader
+from bike_scraper.utils_logger import get_logger
 
 logger = get_logger('scheduler')
 

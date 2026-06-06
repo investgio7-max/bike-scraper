@@ -1,22 +1,22 @@
 """Search handler for Telegram bot - integrates with Wallapop scraper"""
-import asyncio
 from typing import List
-from bike_scraper.scraper_wallapop import WallapopScraper
+from bike_scraper.scraper_wallapop_curl import WallapopScraperCurl
 from bike_scraper.utils_logger import get_logger
 
 logger = get_logger('bot_search')
 
 
-async def search_bikes(search_term: str, max_results: int = 10) -> List[dict]:
+def search_bikes(search_term: str, max_results: int = 10) -> List[dict]:
     """
-    Search for bikes on Wallapop
+    Search for bikes on Wallapop using curl_cffi (lightweight, no browser)
     Returns list of listings with price, location, etc.
     """
     try:
         logger.info(f"🔍 Searching for: {search_term}")
 
-        scraper = WallapopScraper(use_cloak=True)
-        listings = await scraper.search_async(search_term, max_results=max_results)
+        scraper = WallapopScraperCurl()
+        listings = scraper.search(search_term, max_results=max_results)
+        scraper.close()
 
         # Convert to simple dict format for bot
         results = []

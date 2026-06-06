@@ -140,8 +140,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             if search_bikes:
                 try:
                     print(f"🔍 Starting search for: {text}")
-                    # Run async search in thread
-                    results = await search_bikes(text, max_results=10)
+                    # Run sync search (curl_cffi is synchronous)
+                    results = search_bikes(text, max_results=10)
                     result_text = format_search_results(results)
 
                     await update.message.reply_text(

@@ -1,12 +1,22 @@
-"""Telegram bot with simple menu system"""
+"""Telegram bot with simple menu system and real search"""
 import os
+import asyncio
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
 print("📦 Loading telegram_bot_final...")
 
+# Import search handler
+try:
+    from bike_scraper.bot_search_handler import search_bikes, format_search_results
+    print("✅ Imported search handler")
+except Exception as e:
+    print(f"⚠️ Could not import search handler: {e}")
+    search_bikes = None
+
 # Store user states
 user_states = {}
+user_search_queries = {}  # Store search queries for users
 
 
 def get_main_menu():
@@ -110,15 +120,58 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 reply_markup=get_back_menu()
             )
 
+    # Waiting for search query
+    elif state == "search_input":
+        if text == "⬅️ Назад":
+            user_states[user_id] = "search"
+            await update.message.reply_text(
+                "🔍 Выберите действие поиска:",
+                reply_markup=get_search_menu()
+            )
+        else:
+            # User entered search query
+            user_search_queries[user_id] = text
+            await update.message.reply_text(
+                f"🔍 Ищу велосипеды: '{text}'\n⏳ Это может занять 30-60 секунд...",
+                reply_markup=get_back_menu()
+            )
+
+            # Run search
+            if search_bikes:
+                try:
+                    print(f"🔍 Starting search for: {text}")
+                    # Run async search in thread
+                    results = await search_bikes(text, max_results=10)
+                    result_text = format_search_results(results)
+
+                    await update.message.reply_text(
+                        result_text,
+                        reply_markup=get_search_menu()
+                    )
+                    user_states[user_id] = "search"
+                    print(f"✅ Search completed")
+                except Exception as e:
+                    print(f"❌ Search error: {e}")
+                    await update.message.reply_text(
+                        f"❌ Ошибка при поиске: {e}",
+                        reply_markup=get_search_menu()
+                    )
+                    user_states[user_id] = "search"
+            else:
+                await update.message.reply_text(
+                    "⚠️ Функция поиска недоступна",
+                    reply_markup=get_search_menu()
+                )
+                user_states[user_id] = "search"
+
     # Search menu
     elif state == "search":
         if text == "🤑 Лучшие цены":
+            user_states[user_id] = "search_input"
             await update.message.reply_text(
-                "🤑 Лучшие цены сейчас:\n\n"
-                "1️⃣ Trek FX 3 - €450\n"
-                "2️⃣ Giant Escape 3 - €520\n"
-                "3️⃣ Specialized Sirrus - €580",
-                reply_markup=get_search_menu()
+                "🔍 Введите название велосипеда для поиска:\n\n"
+                "Примеры: Trek FX 3, Giant Escape, Canyon Aeroad",
+                reply_markup=get_back_menu()
             )
 
         elif text == "📈 Анализ":

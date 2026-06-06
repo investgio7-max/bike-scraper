@@ -55,10 +55,17 @@ class BikeScraperBot:
 
     async def setup(self):
         """Initialize app"""
-        print("🔧 Setting up bot...")
-        self.app = Application.builder().token(self.token).build()
-        self.setup_handlers()
-        print("✅ Bot setup complete")
+        try:
+            print("🔧 Setting up bot...")
+            self.app = Application.builder().token(self.token).build()
+            print("✅ Application built")
+            self.setup_handlers()
+            print("✅ Bot setup complete")
+        except Exception as e:
+            print(f"❌ Error in setup: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
 
     async def run(self):
         """Run bot"""

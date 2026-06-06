@@ -12,7 +12,7 @@ import json
 from models import Listing, ListingHistory, ScraperLog, SellerProfile, PriceAnalysis
 from scraper_base import ListingData
 from utils_logger import get_logger
-from utils_parser import BikeParser
+from ai_bike_parser import AIBikeParser
 
 logger = get_logger('service')
 
@@ -81,10 +81,25 @@ class ListingService:
             date_collected=datetime.utcnow(),
         )
 
-        # Парсим велосипед из текста
-        bike_info = BikeParser.parse_listing(listing_data.title, listing_data.description)
-        listing.frame_size = bike_info.get('frame_size')
-        listing.bike_type = bike_info.get('bike_type')
+        # Парсим велосипед с помощью AI парсера
+        try:
+            ai_parser = AIBikeParser()
+            bike = ai_parser.parse(
+                title=listing_data.title,
+                description=listing_data.description,
+                images=listing_data.images or [],
+                analyze_images=False  # Отключаем анализ изображений по умолчанию для скорости
+            )
+            bike_dict = bike.to_dict()
+
+            # Сохраняем результаты парсинга
+            listing.frame_size = bike_dict.get('size')
+            listing.bike_type = bike_dict.get('bike_type')
+            listing.raw_data['ai_analysis'] = bike_dict
+
+            logger.info(f"🤖 AI парсер: {bike_dict.get('brand')} {bike_dict.get('model')} ({bike_dict.get('confidence'):.0f}%)")
+        except Exception as e:
+            logger.warning(f"⚠️ AI парсер ошибка: {e}")
 
         db.add(listing)
 

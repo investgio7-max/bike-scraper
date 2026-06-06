@@ -12,6 +12,9 @@ from bike_scraper.models import Base
 
 logger = logging.getLogger(__name__)
 
+# Логируем какую БД используем
+logger.info(f"🔗 DATABASE_URL: {DATABASE_URL[:50]}..." if DATABASE_URL else "❌ DATABASE_URL not set!")
+
 # Создаем engine с пулингом соединений
 engine = create_engine(
     DATABASE_URL,

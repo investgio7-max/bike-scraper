@@ -55,8 +55,11 @@ class WallapopScraperCurl(BaseScraper):
                     timeout=30
                 )
 
+                logger.debug(f"📊 Response status: {response.status_code}, size: {len(response.text)} bytes")
+
                 if response.status_code != 200:
                     logger.warning(f"⚠️ Status {response.status_code}")
+                    logger.debug(f"Response: {response.text[:500]}")
                     break
 
                 # Parse HTML
@@ -64,11 +67,19 @@ class WallapopScraperCurl(BaseScraper):
 
                 # Find listings (adapt selectors if needed)
                 listings = soup.find_all('div', class_=lambda x: x and 'ItemCard' in x)
-                if not listings:
-                    listings = soup.find_all('article')
+                logger.debug(f"🔍 Found {len(listings)} ItemCard divs")
 
                 if not listings:
-                    logger.debug(f"No listings on page {page + 1}")
+                    listings = soup.find_all('article')
+                    logger.debug(f"🔍 Found {len(listings)} article tags")
+
+                if not listings:
+                    # Try alternative selector
+                    listings = soup.find_all('a', attrs={'href': lambda x: x and '/item/' in x})
+                    logger.debug(f"🔍 Found {len(listings)} item links")
+
+                if not listings:
+                    logger.debug(f"No listings found on page {page + 1}")
                     break
 
                 logger.info(f"📋 Found {len(listings)} listings on page {page + 1}")

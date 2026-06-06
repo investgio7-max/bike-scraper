@@ -1,0 +1,30 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "dockerfile",
+    "dockerfile": "Dockerfile"
+  },
+  "deploy": {
+    "numReplicas": 1,
+    "sleepApplication": false,
+    "restartPolicyType": "on_failure",
+    "restartPolicyMaxRetries": 5,
+    "startCommand": "python scheduler.py"
+  },
+  "env": {
+    "PYTHONUNBUFFERED": "1",
+    "LOG_LEVEL": "INFO",
+    "DOWNLOAD_IMAGES": "True",
+    "SCRAPE_INTERVAL": "600",
+    "MAX_RESULTS": "100"
+  },
+  "services": {
+    "postgres": {
+      "image": "postgres:15",
+      "env": {
+        "POSTGRES_DB": "bike_scraper",
+        "POSTGRES_USER": "bike_user"
+      }
+    }
+  }
+}

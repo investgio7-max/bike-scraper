@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  # =====================
+  # PostgreSQL Database
+  # =====================
+  postgres:
+    image: postgres:15
+    container_name: bike_scraper_db
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: bike_user
+      POSTGRES_PASSWORD: bike_password
+      POSTGRES_DB: bike_scraper
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bike_user -d bike_scraper"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bike_network
+
+  # =====================
+  # Bike Scraper Service
+  # =====================
+  scraper:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bike_scraper_app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://bike_user:bike_password@postgres:5432/bike_scraper
+      SCRAPE_INTERVAL: 600
+      LOG_FILE: /app/logs/scraper.log
+      DEBUG: 'False'
+    volumes:
+      - ./images:/app/images
+      - ./logs:/app/logs
+    networks:
+      - bike_network
+    restart: unless-stopped
+    command: python scheduler.py
+
+  # =====================
+  # REST API Service
+  # =====================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bike_scraper_api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://bike_user:bike_password@postgres:5432/bike_scraper
+      API_HOST: 0.0.0.0
+      API_PORT: 8000
+      LOG_FILE: /app/logs/api.log
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - bike_network
+    restart: unless-stopped
+    command: uvicorn api_main:app --host 0.0.0.0 --port 8000 --reload
+
+  # =====================
+  # Redis Cache (Optional)
+  # =====================
+  redis:
+    image: redis:7-alpine
+    container_name: bike_scraper_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - bike_network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  bike_network:
+    driver: bridge

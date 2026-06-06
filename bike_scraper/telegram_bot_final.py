@@ -57,10 +57,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle all messages"""
     user_id = update.effective_user.id
-    text = update.message.text
+    text = update.message.text.strip() if update.message.text else ""
     state = user_states.get(user_id, "main")
 
-    print(f"📨 {user_id} | State: {state} | Text: {text}")
+    print(f"📨 {user_id} | State: {state} | Text: '{text}' (len={len(text)})")
+
+    # Handle back button from any state
+    if "Назад" in text:
+        print(f"🔙 Back button detected from state {state}")
+        user_states[user_id] = "main"
+        await update.message.reply_text(
+            "👈 Вернулись в главное меню",
+            reply_markup=get_main_menu()
+        )
+        print(f"✅ Back to main")
+        return
 
     # Main menu
     if state == "main":

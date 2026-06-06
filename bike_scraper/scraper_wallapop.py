@@ -40,10 +40,7 @@ class WallapopScraper(BaseScraper):
             if self.use_cloak:
                 from cloakbrowser import launch_async
 
-                self.browser = await launch_async(
-                    headless=True,
-                    humanize=True,  # Human-like behavior
-                )
+                self.browser = await launch_async(headless=True)
                 logger.info("✅ CloakBrowser (stealth) запущен")
             else:
                 self.playwright = await async_playwright().start()

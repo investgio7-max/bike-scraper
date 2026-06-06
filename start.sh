@@ -1,34 +1,33 @@
 #!/bin/bash
 
 echo "🚀 Starting Bike Scraper on Railway..."
-echo "✅ Dependencies already installed by Railway"
-echo "🔧 Using python3 for all processes"
+echo "🔧 Using python3"
 
-# Start Telegram bot in background
-python3 << 'EOF' &
+# Start Telegram Bot
+echo "🤖 Starting Telegram Bot in background..."
+/usr/local/bin/python3 << 'BOTEOF' &
 import asyncio
-from bike_scraper.telegram_bot import create_telegram_bot
 import os
+from bike_scraper.telegram_bot import create_telegram_bot
 
-print("🤖 Starting Telegram Bot...")
-try:
-    token = os.getenv('TELEGRAM_BOT_TOKEN')
-    if token:
-        bot = create_telegram_bot(token)
-        asyncio.run(bot.run())
-    else:
-        print("⚠️  TELEGRAM_BOT_TOKEN not set, skipping bot")
-except Exception as e:
-    print(f"❌ Bot error: {e}")
-EOF
+token = os.getenv('TELEGRAM_BOT_TOKEN')
+if token:
+    print("✅ Bot token found")
+    bot = create_telegram_bot(token)
+    asyncio.run(bot.run())
+else:
+    print("⚠️ No bot token")
+BOTEOF
 
-# Start scheduler in background
-python3 << 'EOF' &
-import time
+sleep 2
+
+# Start Scheduler
+echo "⏰ Starting Scheduler in background..."
+/usr/local/bin/python3 << 'SCHEDEOF' &
 import sys
 from bike_scraper.scheduler import BikeScraperScheduler
 
-print("⏰ Starting Scheduler...")
+print("Starting scheduler...")
 try:
     scheduler = BikeScraperScheduler()
     scheduler.run()
@@ -38,8 +37,10 @@ except KeyboardInterrupt:
 except Exception as e:
     print(f"Scheduler error: {e}")
     sys.exit(1)
-EOF
+SCHEDEOF
 
-# Run API in foreground (this is what Railway waits for)
+sleep 2
+
+# Start API
 echo "📡 Starting API on port $PORT..."
-exec python3 -m uvicorn bike_scraper.api_main:app --host 0.0.0.0 --port $PORT
+exec /usr/local/bin/python3 -m uvicorn bike_scraper.api_main:app --host 0.0.0.0 --port $PORT

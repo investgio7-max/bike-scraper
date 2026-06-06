@@ -47,10 +47,23 @@ class BikeScraperBot:
         except Exception as e:
             print(f"❌ Error in handle_message: {e}")
 
+    async def error_handler(self, update, context):
+        """Handle errors"""
+        print(f"❌ Update error: {context.error}")
+        import traceback
+        traceback.print_exception(type(context.error), context.error, context.error.__traceback__)
+
     def setup_handlers(self):
         """Setup handlers"""
+        print("🔧 Adding command handler for /start...")
         self.app.add_handler(CommandHandler("start", self.start))
-        self.app.add_handler(MessageHandler(filters.TEXT, self.handle_message))
+
+        print("🔧 Adding message handler for TEXT...")
+        self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_message))
+
+        print("🔧 Adding error handler...")
+        self.app.add_error_handler(self.error_handler)
+
         print("✅ Handlers setup complete")
 
     async def setup(self):

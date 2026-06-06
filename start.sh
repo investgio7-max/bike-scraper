@@ -2,12 +2,27 @@
 
 echo "🚀 Starting Bike Scraper on Railway..."
 echo "🔧 Using python3"
+echo "📍 Working directory: $(pwd)"
+echo "📄 Files present:"
+ls -la run_bot.py 2>&1 || echo "❌ run_bot.py not found!"
 
 # Start Telegram Bot in background with logging
 echo "🤖 Starting Telegram Bot in background..."
-/usr/local/bin/python3 run_bot.py > /tmp/bot.log 2>&1 &
-BOT_PID=$!
-echo "Bot PID: $BOT_PID"
+if [ -f run_bot.py ]; then
+    /usr/local/bin/python3 run_bot.py > /tmp/bot.log 2>&1 &
+    BOT_PID=$!
+    echo "✅ Bot PID: $BOT_PID"
+    sleep 1
+    if ps -p $BOT_PID > /dev/null; then
+        echo "✅ Bot process is running"
+    else
+        echo "❌ Bot process failed to start"
+        echo "Bot log:"
+        cat /tmp/bot.log
+    fi
+else
+    echo "❌ run_bot.py not found!"
+fi
 
 sleep 2
 

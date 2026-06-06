@@ -19,8 +19,7 @@ from bike_scraper.utils_logger import get_logger
 
 logger = get_logger('telegram_bot')
 
-# Conversation states
-MAIN_MENU, SEARCH_MENU, SEARCH_INPUT, SEARCH_TERM_INPUT, DEALS_INPUT, PRICE_BRAND_INPUT = range(6)
+# No longer using ConversationHandler - using user_data for state tracking
 
 
 class BikeScraperBot:
@@ -104,7 +103,6 @@ class BikeScraperBot:
                 reply_markup=self.get_search_menu(),
                 parse_mode='Markdown'
             )
-            return SEARCH_MENU
 
         elif text == "📊 Статистика":
             msg = "Выберите что посмотреть:"
@@ -113,7 +111,6 @@ class BikeScraperBot:
                 reply_markup=self.get_stats_menu(),
                 parse_mode='Markdown'
             )
-            return MAIN_MENU
 
         elif text == "💰 Мониторинг":
             msg = "Управление мониторингом:"
@@ -122,7 +119,6 @@ class BikeScraperBot:
                 reply_markup=self.get_monitoring_menu(),
                 parse_mode='Markdown'
             )
-            return MAIN_MENU
 
         elif text == "💡 Помощь":
             help_text = self.reports.get_help()
@@ -131,15 +127,18 @@ class BikeScraperBot:
                 reply_markup=self.get_main_menu(),
                 parse_mode='Markdown'
             )
-            return MAIN_MENU
-
-        return MAIN_MENU
+        else:
+            await update.message.reply_text(
+                "❓ Не понимаю. Выберите из предложенных кнопок:",
+                reply_markup=self.get_main_menu()
+            )
 
     async def handle_search_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработка меню поиска"""
         text = update.message.text
 
         if text == "🤑 Лучшие цены":
+            context.user_data['mode'] = 'deals'
             await update.message.reply_text(
                 "Введите что ищете (например: Canyon, Specialized Tarmac):",
                 reply_markup=ReplyKeyboardMarkup(
@@ -147,9 +146,9 @@ class BikeScraperBot:
                     resize_keyboard=True
                 )
             )
-            return DEALS_INPUT
 
         elif text == "📈 Анализ цен":
+            context.user_data['mode'] = 'price'
             await update.message.reply_text(
                 "Введите название бренда для анализа (например: Canyon, Specialized):",
                 reply_markup=ReplyKeyboardMarkup(
@@ -157,7 +156,6 @@ class BikeScraperBot:
                     resize_keyboard=True
                 )
             )
-            return PRICE_BRAND_INPUT
 
         elif text == "🔄 Статус":
             status = self.reports.get_system_status()
@@ -166,17 +164,14 @@ class BikeScraperBot:
                 reply_markup=self.get_search_menu(),
                 parse_mode='Markdown'
             )
-            return SEARCH_MENU
 
         elif text == "⬅️ Назад":
+            context.user_data['mode'] = None
             await update.message.reply_text(
                 "Главное меню:",
                 reply_markup=self.get_main_menu(),
                 parse_mode='Markdown'
             )
-            return MAIN_MENU
-
-        return SEARCH_MENU
 
     async def handle_monitoring_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработка меню мониторинга"""
@@ -184,6 +179,7 @@ class BikeScraperBot:
         user_id = update.effective_user.id
 
         if text == "➕ Добавить поиск":
+            context.user_data['mode'] = 'add_search'
             await update.message.reply_text(
                 "Введите название поиска (например: Canyon Aeroad):",
                 reply_markup=ReplyKeyboardMarkup(
@@ -191,7 +187,6 @@ class BikeScraperBot:
                     resize_keyboard=True
                 )
             )
-            return SEARCH_TERM_INPUT
 
         elif text == "📋 Мои поиски":
             try:
@@ -222,9 +217,8 @@ class BikeScraperBot:
                 logger.error(f"Error listing searches: {e}")
                 await update.message.reply_text("❌ Ошибка получения списка")
 
-            return MAIN_MENU
-
         elif text == "➖ Удалить поиск":
+            context.user_data['mode'] = 'delete_search'
             try:
                 db = next(get_db())
                 searches = db.query(MonitoringSearch).filter(
@@ -253,73 +247,13 @@ class BikeScraperBot:
                 logger.error(f"Error: {e}")
                 await update.message.reply_text("❌ Ошибка")
 
-            return MAIN_MENU
-
         elif text == "⬅️ Назад":
+            context.user_data['mode'] = None
             await update.message.reply_text(
                 "Главное меню:",
                 reply_markup=self.get_main_menu(),
                 parse_mode='Markdown'
             )
-            return MAIN_MENU
-
-        return MAIN_MENU
-
-    async def handle_deals_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Обработка ввода для поиска лучших цен"""
-        text = update.message.text
-
-        if text == "⬅️ Назад":
-            await update.message.reply_text(
-                "Выберите тип поиска:",
-                reply_markup=self.get_search_menu(),
-                parse_mode='Markdown'
-            )
-            return SEARCH_MENU
-
-        deals = self.reports.get_best_deals(text, limit=5)
-        await update.message.reply_text(
-            deals,
-            reply_markup=self.get_search_menu(),
-            parse_mode='Markdown'
-        )
-        return SEARCH_MENU
-
-    async def handle_price_brand_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Обработка ввода для анализа цен"""
-        text = update.message.text
-
-        if text == "⬅️ Назад":
-            await update.message.reply_text(
-                "Выберите тип поиска:",
-                reply_markup=self.get_search_menu(),
-                parse_mode='Markdown'
-            )
-            return SEARCH_MENU
-
-        analysis = self.reports.get_price_analysis(text)
-        await update.message.reply_text(
-            analysis,
-            reply_markup=self.get_search_menu(),
-            parse_mode='Markdown'
-        )
-        return SEARCH_MENU
-
-    async def handle_search_term_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Обработка ввода названия поиска"""
-        text = update.message.text
-        user_id = update.effective_user.id
-
-        if text == "⬅️ Назад":
-            await update.message.reply_text(
-                "Управление мониторингом:",
-                reply_markup=self.get_monitoring_menu(),
-                parse_mode='Markdown'
-            )
-            return MAIN_MENU
-
-        await self.create_monitoring_search(user_id, text, update)
-        return MAIN_MENU
 
     async def handle_stats_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Обработка меню статистики"""
@@ -332,7 +266,6 @@ class BikeScraperBot:
                 reply_markup=self.get_stats_menu(),
                 parse_mode='Markdown'
             )
-            return MAIN_MENU
 
         elif text == "🔔 Статус системы":
             status = self.reports.get_system_status()
@@ -341,17 +274,14 @@ class BikeScraperBot:
                 reply_markup=self.get_stats_menu(),
                 parse_mode='Markdown'
             )
-            return MAIN_MENU
 
         elif text == "⬅️ Назад":
+            context.user_data['mode'] = None
             await update.message.reply_text(
                 "Главное меню:",
                 reply_markup=self.get_main_menu(),
                 parse_mode='Markdown'
             )
-            return MAIN_MENU
-
-        return MAIN_MENU
 
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Команда /help"""
@@ -420,80 +350,85 @@ class BikeScraperBot:
             await update.message.reply_text("❌ Ошибка добавления поиска")
 
     async def handle_text_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Обработка текстовых сообщений и удаления по ID"""
+        """Обработка текстовых сообщений в зависимости от режима"""
         text = update.message.text
         user_id = update.effective_user.id
+        mode = context.user_data.get('mode', None)
 
-        # Проверяем если это число (ID для удаления)
-        if text.isdigit():
-            try:
-                search_id = int(text)
-                db = next(get_db())
+        # Обработка главного меню
+        if mode is None or text in ["🔍 Поиск", "📊 Статистика", "💰 Мониторинг", "💡 Помощь"]:
+            await self.handle_main_menu(update, context)
 
-                search = db.query(MonitoringSearch).filter(
-                    MonitoringSearch.id == search_id,
-                    MonitoringSearch.user_id == user_id
-                ).first()
+        # Обработка меню поиска
+        elif mode == 'search' or text in ["🤑 Лучшие цены", "📈 Анализ цен", "🔄 Статус"]:
+            if text in ["🤑 Лучшие цены", "📈 Анализ цен", "🔄 Статус"]:
+                context.user_data['mode'] = 'search'
+                await self.handle_search_menu(update, context)
+            elif mode == 'deals':
+                if text == "⬅️ Назад":
+                    context.user_data['mode'] = None
+                    await update.message.reply_text("Главное меню:", reply_markup=self.get_main_menu())
+                else:
+                    deals = self.reports.get_best_deals(text, limit=5)
+                    await update.message.reply_text(deals, reply_markup=self.get_search_menu(), parse_mode='Markdown')
+            elif mode == 'price':
+                if text == "⬅️ Назад":
+                    context.user_data['mode'] = None
+                    await update.message.reply_text("Главное меню:", reply_markup=self.get_main_menu())
+                else:
+                    analysis = self.reports.get_price_analysis(text)
+                    await update.message.reply_text(analysis, reply_markup=self.get_search_menu(), parse_mode='Markdown')
 
-                if not search:
-                    await update.message.reply_text(
-                        "❌ Поиск не найден",
-                        reply_markup=self.get_monitoring_menu()
-                    )
-                    db.close()
-                    return
+        # Обработка меню мониторинга
+        elif mode == 'monitoring' or text in ["➕ Добавить поиск", "📋 Мои поиски", "➖ Удалить поиск"]:
+            if text in ["➕ Добавить поиск", "📋 Мои поиски", "➖ Удалить поиск"]:
+                context.user_data['mode'] = 'monitoring'
+                await self.handle_monitoring_menu(update, context)
+            elif mode == 'add_search':
+                if text == "⬅️ Назад":
+                    context.user_data['mode'] = None
+                    await update.message.reply_text("Главное меню:", reply_markup=self.get_main_menu())
+                else:
+                    await self.create_monitoring_search(user_id, text, update)
+                    context.user_data['mode'] = None
+            elif mode == 'delete_search':
+                if text == "⬅️ Назад":
+                    context.user_data['mode'] = None
+                    await update.message.reply_text("Главное меню:", reply_markup=self.get_main_menu())
+                elif text.isdigit():
+                    search_id = int(text)
+                    try:
+                        db = next(get_db())
+                        search = db.query(MonitoringSearch).filter(
+                            MonitoringSearch.id == search_id,
+                            MonitoringSearch.user_id == user_id
+                        ).first()
+                        if not search:
+                            await update.message.reply_text("❌ Поиск не найден", reply_markup=self.get_monitoring_menu())
+                        else:
+                            search.is_active = False
+                            db.commit()
+                            db.close()
+                            await update.message.reply_text(f"✅ Поиск '{search.search_term}' удален!", reply_markup=self.get_monitoring_menu())
+                            logger.info(f"User {user_id} removed search {search_id}")
+                    except Exception as e:
+                        logger.error(f"Error: {e}")
+                        await update.message.reply_text("❌ Ошибка удаления поиска")
 
-                search.is_active = False
-                db.commit()
-                db.close()
+        # Обработка меню статистики
+        elif mode == 'stats' or text in ["📊 Статистика рынка", "🔔 Статус системы"]:
+            if text in ["📊 Статистика рынка", "🔔 Статус системы"]:
+                context.user_data['mode'] = 'stats'
+            await self.handle_stats_menu(update, context)
 
-                await update.message.reply_text(
-                    f"✅ Поиск '{search.search_term}' удален!",
-                    reply_markup=self.get_monitoring_menu()
-                )
-                logger.info(f"User {user_id} removed search {search_id}")
-                return
-
-            except Exception as e:
-                logger.error(f"Error removing search: {e}")
-                await update.message.reply_text("❌ Ошибка удаления поиска")
-                return
-
-        # Для остальных сообщений показываем главное меню
-        await update.message.reply_text(
-            "Главное меню:",
-            reply_markup=self.get_main_menu()
-        )
+        else:
+            await update.message.reply_text("Выберите из предложенных кнопок:", reply_markup=self.get_main_menu())
 
     def setup_handlers(self):
-        """Настроить обработчики команд и меню"""
-        conv_handler = ConversationHandler(
-            entry_points=[CommandHandler("start", self.start)],
-            states={
-                MAIN_MENU: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_main_menu),
-                    CommandHandler("help", self.help_command),
-                ],
-                SEARCH_MENU: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_search_menu),
-                ],
-                DEALS_INPUT: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_deals_input),
-                ],
-                PRICE_BRAND_INPUT: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_price_brand_input),
-                ],
-                SEARCH_TERM_INPUT: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_search_term_input),
-                ],
-            },
-            fallbacks=[
-                MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_text_message),
-                CommandHandler("start", self.start),
-            ],
-        )
-
-        self.app.add_handler(conv_handler)
+        """Настроить обработчики команд"""
+        self.app.add_handler(CommandHandler("start", self.start))
+        self.app.add_handler(CommandHandler("help", self.help_command))
+        self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_text_message))
 
     async def setup(self):
         """Инициализировать приложение"""

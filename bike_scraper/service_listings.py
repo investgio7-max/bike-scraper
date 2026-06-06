@@ -9,10 +9,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc
 import json
 
-from models import Listing, ListingHistory, ScraperLog, SellerProfile, PriceAnalysis
-from scraper_base import ListingData
-from utils_logger import get_logger
-from ai_bike_parser import AIBikeParser
+from bike_scraper.models import Listing, ListingHistory, ScraperLog, SellerProfile, PriceAnalysis
+from bike_scraper.scraper_base import ListingData
+from bike_scraper.utils_logger import get_logger
+from bike_scraper.ai_bike_parser import AIBikeParser
 
 logger = get_logger('service')
 

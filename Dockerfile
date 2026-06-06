@@ -1,24 +1,20 @@
-FROM python:3.11
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for python packages
+# Minimal system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libssl-dev \
-    libffi-dev \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy and install requirements
+# Install Python deps
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
 
-# Copy source
+# Copy code
 COPY . .
-
-# Make executable
 RUN chmod +x start.sh
 
 EXPOSE 8000
-
 CMD ["bash", "start.sh"]

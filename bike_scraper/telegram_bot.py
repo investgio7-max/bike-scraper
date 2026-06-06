@@ -69,7 +69,7 @@ class BikeScraperBot:
             print("🤖 Starting polling...")
             await self.app.initialize()
             await self.app.start()
-            await self.app.updater.start_polling(allowed_updates=['message', 'edited_message'])
+            await self.app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
             print("✅ Bot polling started")
         except Exception as e:
             print(f"❌ Error in run: {e}")

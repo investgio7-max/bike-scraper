@@ -178,7 +178,7 @@ class WallapopScraperSmart(BaseScraper):
         logger.info(f"✅ Found {len(all_listings)} listings (curl_cffi)")
         return all_listings
 
-    def _parse_listing(self, elem) -> ListingData:
+    def parse_listing(self, elem) -> ListingData:
         """Parse listing element"""
         try:
             title_elem = elem.find('h2') or elem.find('a')

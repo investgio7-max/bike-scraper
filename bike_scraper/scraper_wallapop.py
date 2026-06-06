@@ -31,49 +31,51 @@ class WallapopScraper(BaseScraper):
         self.playwright = None
 
     async def init_browser(self):
-        """Инициализировать браузер (Cloak или стандартный Chromium)"""
+        """Инициализировать браузер (CloakBrowser с humanize или Chromium)"""
         if self.page:
             return  # Уже инициализирован
 
-        self.playwright = await async_playwright().start()
-
         try:
-            # Пытаемся запустить CloakBrowser
+            # Используем CloakBrowser Python пакет
             if self.use_cloak:
-                self.browser = await self.playwright.chromium.launch(
-                    executable_path="/Applications/Cloak.app/Contents/MacOS/Cloak",
+                from cloakbrowser import launch_async
+
+                self.browser = await launch_async(
                     headless=True,
-                    args=[
-                        "--disable-blink-features=AutomationControlled",
-                        "--no-first-run",
-                        "--no-default-browser-check",
-                    ]
+                    humanize=True,  # Human-like behavior
                 )
-                logger.info("✅ CloakBrowser запущен")
+                logger.info("✅ CloakBrowser (stealth) запущен")
             else:
+                self.playwright = await async_playwright().start()
                 self.browser = await self.playwright.chromium.launch(headless=True)
                 logger.info("✅ Chromium запущен")
+
         except Exception as e:
-            logger.warning(f"⚠️ CloakBrowser не найден, используем Chromium: {e}")
+            logger.warning(f"⚠️ CloakBrowser недоступен, используем Chromium: {e}")
+            self.playwright = await async_playwright().start()
             self.browser = await self.playwright.chromium.launch(headless=True)
 
-        # Создать контекст
-        self.context = await self.browser.new_context(
-            user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-            viewport={"width": 1920, "height": 1080},
-            locale="es-ES",
-            timezone_id="Europe/Madrid",
-        )
+        # Создать страницу
+        try:
+            # Для CloakBrowser
+            self.page = await self.browser.new_page()
+        except:
+            # Для обычного Chromium через Playwright
+            self.context = await self.browser.new_context(
+                user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                viewport={"width": 1920, "height": 1080},
+                locale="es-ES",
+                timezone_id="Europe/Madrid",
+            )
+            await self.context.set_extra_http_headers({
+                "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+            })
+            self.page = await self.context.new_page()
 
-        await self.context.set_extra_http_headers({
-            "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
-        })
-
-        self.page = await self.context.new_page()
         self.page.set_default_timeout(30000)
         self.page.set_default_navigation_timeout(30000)
 
-        logger.info("✅ Контекст браузера инициализирован")
+        logger.info("✅ Страница браузера инициализирована")
 
     async def search_async(self, search_term: str, max_results: int = 100) -> List[ListingData]:
         """
@@ -96,15 +98,21 @@ class WallapopScraper(BaseScraper):
                 # Загружаем страницу через браузер
                 await self.page.goto(url, wait_until='networkidle', timeout=30000)
 
-                # Ждем загрузки контента
-                await self.page.wait_for_selector('div[data-qa="ItemCard"]', timeout=10000)
+                # Ждем загрузки контента (пробуем несколько селекторов)
+                try:
+                    await self.page.wait_for_selector('div[class*="ItemCard"]', timeout=10000)
+                except:
+                    await self.page.wait_for_selector('article', timeout=10000)
 
                 # Получаем HTML
                 html = await self.page.content()
 
                 # Парсим HTML
                 soup = BeautifulSoup(html, 'html.parser')
-                listings = soup.find_all('div', {'data-qa': 'ItemCard'})
+                # Пробуем несколько селекторов
+                listings = soup.find_all('div', class_=lambda x: x and 'ItemCard' in x)
+                if not listings:
+                    listings = soup.find_all('article')
 
                 if not listings:
                     logger.debug(f"Страница {page + 1} пуста")
@@ -146,58 +154,92 @@ class WallapopScraper(BaseScraper):
     def _parse_listing_element(self, element) -> Optional[ListingData]:
         """Парсить элемент объявления из HTML (современная структура Wallapop)"""
         try:
-            # Попробуем получить ID из атрибута data-qa
-            listing_id = element.get('data-qa', '') or element.get('data-id', '')
+            # Попробуем получить ID из разных атрибутов
+            listing_id = None
 
-            # Или найти ссылку и извлечь ID из URL
-            if not listing_id:
-                link_elem = element.find('a')
-                if link_elem:
-                    href = link_elem.get('href', '')
-                    match = re.search(r'/item/(\d+)', href)
-                    if match:
-                        listing_id = match.group(1)
+            # 1. Попробуем найти link и извлечь ID
+            links = element.find_all('a')
+            for link in links:
+                href = link.get('href', '')
+                # /item/123456 или /listings/123456
+                match = re.search(r'/(item|listings)/(\d+)', href)
+                if match:
+                    listing_id = match.group(2)
+                    break
 
             if not listing_id:
                 return None
 
-            # Название (разные варианты селекторов)
-            title_elem = element.find('h2') or element.find('a', attrs={'data-qa': re.compile('.*title.*')})
-            title = title_elem.text.strip() if title_elem else ''
+            # Название - ищем в разных местах
+            title = ''
 
+            # Попробуем найти span или div с классом, содержащим название
+            title_candidates = element.find_all(['h2', 'h3', 'span', 'div'], limit=20)
+            for candidate in title_candidates:
+                text = candidate.text.strip()
+                # Пропускаем короткие текст типа цены и фильтры
+                if len(text) > 10 and len(text) < 200 and not text.startswith('€'):
+                    # Проверяем что это не цена или другой сервисный текст
+                    if text and ('/' not in text or 'Canyon' in text or 'Aeroad' in text):
+                        title = text
+                        break
+
+            # Альтернативный способ - ищем в первой ссылке
             if not title:
+                first_link = element.find('a')
+                if first_link:
+                    title = first_link.get('title', '') or first_link.text.strip()
+
+            if not title or len(title) < 5:
                 return None
+
+            # Очищаем название от артефактов
+            title = re.sub(r'^\d+\s*/\s*\d+\s*', '', title)  # Удаляем "1 / 25"
+            title = title.strip()
 
             # Ссылка
-            link_elem = element.find('a')
-            url = link_elem.get('href', '') if link_elem else ''
-            if url and not url.startswith('http'):
-                url = 'https://es.wallapop.com' + url
+            url = ''
+            if links:
+                href = links[0].get('href', '')
+                if href.startswith('/'):
+                    url = 'https://es.wallapop.com' + href
+                else:
+                    url = href
 
-            # Цена
-            price_elem = element.find(attrs={'data-qa': re.compile('.*price.*')}) or element.find('span', {'class': re.compile('.*price.*', re.I)})
-            price_text = price_elem.text.strip() if price_elem else ''
+            # Цена - ищем текст с €
+            price_text = ''
+            all_text = element.get_text()
+
+            # Найдем первое вхождение цены в формате "€X.XXX"
+            price_match = re.search(r'€\s*([\d.,]+)', all_text)
+            if price_match:
+                price_text = price_match.group(0)
+
             price = normalize_price(price_text)
 
             if not price or price < MIN_PRICE or price > MAX_PRICE:
                 return None
 
-            # Локация
-            location_elem = element.find(attrs={'data-qa': re.compile('.*location.*')})
-            location = location_elem.text.strip() if location_elem else ''
+            # Локация - обычно в конце объявления
+            location = ''
+            text_parts = all_text.split('\n')
+            if len(text_parts) > 1:
+                # Последний непустой текст часто - локация
+                for part in reversed(text_parts):
+                    part_clean = part.strip()
+                    if part_clean and len(part_clean) < 50 and '€' not in part_clean:
+                        location = part_clean
+                        break
 
-            # Дата (обычно в relative формате)
-            date_elem = element.find(attrs={'data-qa': re.compile('.*time.*')}) or element.find('time')
-            date_text = date_elem.text.strip() if date_elem else ''
-            date_posted = self._parse_date(date_text)
-
-            # Информация о продавце
-            seller_elem = element.find(attrs={'data-qa': re.compile('.*seller.*')})
-            seller_name = seller_elem.text.strip() if seller_elem else 'Unknown'
+            # Продавец
+            seller_name = 'Unknown'
+            # Можно получить из других источников, но пока оставляем Unknown
 
             # Изображение
+            image_url = ''
             img_elem = element.find('img')
-            image_url = img_elem.get('src', '') or img_elem.get('data-src', '') if img_elem else ''
+            if img_elem:
+                image_url = img_elem.get('src', '') or img_elem.get('data-src', '')
 
             # Собираем данные
             listing = ListingData(
@@ -205,17 +247,15 @@ class WallapopScraper(BaseScraper):
                 listing_id=listing_id,
                 url=url,
                 title=title,
-                description='',  # Описание получим из деталей
+                description='',
                 price=price,
                 currency='EUR',
                 seller_name=seller_name,
                 location=location,
                 country='Spain',
-                date_posted=date_posted,
+                date_posted=None,
                 images=[image_url] if image_url else [],
-                raw_data={
-                    'html_element': str(element)[:500]
-                }
+                raw_data={'title': title, 'price': price_text}
             )
 
             return listing
@@ -317,14 +357,17 @@ class WallapopScraper(BaseScraper):
 
     async def close(self):
         """Закрыть браузер и контекст"""
-        if self.page:
-            await self.page.close()
-        if self.context:
-            await self.context.close()
-        if self.browser:
-            await self.browser.close()
-        if self.playwright:
-            await self.playwright.stop()
+        try:
+            if self.page:
+                await self.page.close()
+            if self.context:
+                await self.context.close()
+            if self.browser:
+                await self.browser.close()
+            if self.playwright:
+                await self.playwright.stop()
+        except:
+            pass  # Ignore errors during cleanup
         logger.info("✅ Браузер закрыт")
 
     def parse_listing(self, listing_data: dict) -> ListingData:

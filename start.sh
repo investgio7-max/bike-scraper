@@ -1,8 +1,15 @@
 #!/bin/bash
 
-echo "🚀 Starting Bike Scraper on Railway... (v2)"
+echo "🚀 Starting Bike Scraper on Railway... (v3)"
 echo "🔧 Using python3"
 echo "📍 Working directory: $(pwd)"
+
+# Kill any existing python processes running the bot (avoid conflicts)
+echo "🔪 Killing old bot processes..."
+pkill -f "run_bot.py" || true
+pkill -f "telegram_bot" || true
+sleep 1
+
 echo "📄 Files present:"
 ls -la run_bot.py 2>&1 || echo "❌ run_bot.py not found!"
 

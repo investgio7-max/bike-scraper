@@ -5,7 +5,7 @@ import sys
 print("🤖 Starting bot process...")
 
 try:
-    from bike_scraper.telegram_bot_menu import main
+    from bike_scraper.telegram_bot_final import main
     print("✅ Imported bot")
     print("🚀 Running bot...")
     main()

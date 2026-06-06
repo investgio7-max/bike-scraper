@@ -65,26 +65,46 @@ class WallapopScraperSmart(BaseScraper):
         page = 0
 
         try:
+            logger.info("🎭 Launching CloakBrowser...")
             browser = await launch_async(headless=True)
+            logger.info("✅ CloakBrowser launched")
             page_obj = await browser.new_page()
+            logger.info("✅ Page created")
 
             while len(all_listings) < max_results:
                 url = f"{self.base_url}?keywords={search_term.replace(' ', '+')}&start={page * 50}"
-                logger.debug(f"📄 Loading: {url}")
+                logger.info(f"📄 Loading: {url}")
 
                 await page_obj.goto(url, wait_until='networkidle', timeout=30000)
-                await page_obj.wait_for_timeout(2000)  # Wait for JS to load
+                logger.info("✅ Page loaded")
+
+                await page_obj.wait_for_timeout(3000)  # Wait for JS to load
+                logger.info("✅ Waited for JS")
 
                 html = await page_obj.content()
+                logger.info(f"📊 HTML size: {len(html)} bytes")
+
+                # Log first 1000 chars of HTML
+                logger.debug(f"HTML preview: {html[:1000]}")
+
                 soup = BeautifulSoup(html, 'html.parser')
 
+                # Try multiple selectors
                 listings = soup.find_all('div', class_=lambda x: x and 'ItemCard' in x)
+                logger.info(f"🔍 ItemCard divs: {len(listings)}")
+
                 if not listings:
                     listings = soup.find_all('article')
-
-                logger.debug(f"📋 Found {len(listings)} on page {page + 1}")
+                    logger.info(f"🔍 article tags: {len(listings)}")
 
                 if not listings:
+                    listings = soup.find_all('a', attrs={'data-testid': lambda x: x and 'item' in x.lower()})
+                    logger.info(f"🔍 data-testid items: {len(listings)}")
+
+                logger.info(f"📋 Total listings found: {len(listings)} on page {page + 1}")
+
+                if not listings:
+                    logger.warning("⚠️ No listings found, stopping search")
                     break
 
                 for elem in listings:

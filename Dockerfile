@@ -3,6 +3,7 @@ FROM python:3.11
 WORKDIR /app
 
 # Install system dependencies for CloakBrowser
+# Includes: runtime libraries + fonts (essential for anti-bot evasion)
 RUN apt-get update && apt-get install -y \
     libnspr4 \
     libnss3 \
@@ -19,16 +20,16 @@ RUN apt-get update && apt-get install -y \
     libgbm1 \
     libxkbcommon0 \
     libasound2 \
-    fonts-liberation \
-    xdg-utils \
+    fonts-noto-color-emoji \
+    fonts-freefont-ttf \
+    fonts-unifont \
+    fonts-ipafont-gothic \
+    fonts-wqy-zenhei \
     && rm -rf /var/lib/apt/lists/*
 
 COPY . .
 
 RUN pip install -r requirements.txt
-
-# Pre-download CloakBrowser
-RUN python -c "from cloakbrowser import launch; print('CloakBrowser ready')" || true
 
 RUN chmod +x start.sh
 

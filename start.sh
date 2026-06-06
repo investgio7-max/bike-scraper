@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 Starting Bike Scraper on Railway..."
+echo "🚀 Starting Bike Scraper on Railway... (v2)"
 echo "🔧 Using python3"
 echo "📍 Working directory: $(pwd)"
 echo "📄 Files present:"

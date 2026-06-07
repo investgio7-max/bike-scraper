@@ -46,16 +46,33 @@ ALLOWED_CATEGORIES = [
     "велосипед"
 ]
 
-# Get proxy from environment variable or use working default
+# Прокси ротация - используем несколько прокси для дополнительной защиты
+PROXY_LIST = [
+    # PROXY ID 4409181
+    'http://c4q4gcymn334yzSF:c4q4gcymn334yzSF@185.90.61.65:10059',
+    # PROXY ID 4409302
+    'http://OOqXa3lweR8708rP:OOqXa3lweR8708rP@185.186.76.214:11114',
+]
+
+CURRENT_PROXY_INDEX = 0
+
+def get_next_proxy() -> str:
+    """Получить следующий прокси из списка (ротация)"""
+    global CURRENT_PROXY_INDEX
+    CURRENT_PROXY_INDEX = (CURRENT_PROXY_INDEX + 1) % len(PROXY_LIST)
+    proxy = PROXY_LIST[CURRENT_PROXY_INDEX]
+    logger.info(f"🔄 Ротация прокси #{CURRENT_PROXY_INDEX + 1}/{len(PROXY_LIST)}")
+    return proxy
+
+# Инициализируем PROXY_URL
 PROXY_URL = os.getenv('PROXY_URL')
 
-# Use hardcoded proxy if env var not set
 if not PROXY_URL:
-    PROXY_URL = 'http://c4q4gcymn334yzSF:c4q4gcymn334yzSF@185.90.61.65:10059'
-    logger.info(f"🔗 Using default proxy (PROXY ID 4409181)")
+    PROXY_URL = PROXY_LIST[0]  # Начинаем с первого прокси
+    logger.info(f"✅ Прокси ротация активирована ({len(PROXY_LIST)} прокси доступно)")
 
 if PROXY_URL:
-    logger.info(f"✅ Proxy configured: {PROXY_URL[:40]}...")
+    logger.info(f"✅ Proxy configured")
 else:
     logger.warning(f"⚠️ No proxy available!")
 
@@ -340,6 +357,12 @@ class WallapopScraperSmart(BaseScraper):
                 if response.status_code == 403:
                     logger.error("❌ 403 Forbidden - Cloudflare is blocking curl_cffi!")
                     self.anti_ban.on_request_error(403)  # Сигнал о блокировке
+
+                    # Пробуем переключиться на другой прокси
+                    global PROXY_URL
+                    PROXY_URL = get_next_proxy()
+                    logger.info(f"🔄 Переключился на другой прокси после 403")
+
                 elif response.status_code == 429:
                     logger.error("❌ 429 Too Many Requests - Rate limited!")
                     self.anti_ban.on_request_error(429)

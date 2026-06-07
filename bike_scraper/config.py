@@ -21,8 +21,9 @@ DATABASE_URL = os.getenv(
 # Интервал проверки новых объявлений (секунды)
 SCRAPE_INTERVAL = int(os.getenv('SCRAPE_INTERVAL', 3600))  # 60 минут для избежания Cloudflare блока
 
-# Максимум товаров за раз
+# Максимум товаров за раз (поиск берет 50, остальное для других операций)
 MAX_RESULTS = int(os.getenv('MAX_RESULTS', 100))
+SEARCH_MAX_RESULTS = int(os.getenv('SEARCH_MAX_RESULTS', 50))  # Для бота и поиска
 
 # Таймаут запроса
 REQUEST_TIMEOUT = int(os.getenv('REQUEST_TIMEOUT', 30))

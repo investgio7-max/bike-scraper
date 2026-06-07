@@ -7,7 +7,7 @@ from bike_scraper.utils_logger import get_logger
 logger = get_logger('bot_search')
 
 
-async def search_bikes_async(search_term: str, max_results: int = 10) -> List[dict]:
+async def search_bikes_async(search_term: str, max_results: int = 50) -> List[dict]:
     """
     Search for bikes on Wallapop using CloakBrowser (async version for bot)
     Returns list of listings with price, location, etc.

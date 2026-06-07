@@ -119,21 +119,52 @@ class WallapopScraperSmart(BaseScraper):
         - str: "bicicleta carretera" (keyword search)
         - dict: {'keywords': 'Canyon', 'category_id': 17000} (category search)
         """
+        # Increase raw results to account for keyword filtering
+        raw_max = max_results * 3  # Get 3x results, then filter
+
         # Use CloakBrowser first (renders JavaScript)
         if self.use_cloak:
             logger.info("🎭 Using CloakBrowser for search (primary - executes JS)")
-            results = asyncio.run(self._search_cloak(search_term, max_results))
+            results = asyncio.run(self._search_cloak(search_term, raw_max))
             if results:
-                return results
+                # Filter results by keywords
+                return self._filter_by_keywords(results, search_term, max_results)
             logger.warning("⚠️ CloakBrowser returned 0 results, trying curl_cffi...")
 
         # Fallback to curl_cffi if CloakBrowser failed
         if HAS_CURL:
             logger.info("📡 Using curl_cffi as fallback...")
-            return self._search_curl(search_term, max_results)
+            results = self._search_curl(search_term, raw_max)
+            # Filter results by keywords
+            return self._filter_by_keywords(results, search_term, max_results)
 
         logger.error("❌ No scraping tool available!")
         return []
+
+    def _filter_by_keywords(self, listings: List[ListingData], search_term, max_results: int) -> List[ListingData]:
+        """Filter listings by keywords from search_term"""
+        # Extract keywords to search for
+        keywords = []
+        if isinstance(search_term, dict):
+            keywords = search_term.get('keywords', '').lower().split()
+        elif isinstance(search_term, str):
+            keywords = search_term.lower().split()
+
+        if not keywords:
+            logger.warning("⚠️ No keywords to filter by")
+            return listings[:max_results]
+
+        filtered = []
+        for listing in listings:
+            title_lower = listing.title.lower()
+            # Check if ALL keywords are in the title
+            if all(keyword in title_lower for keyword in keywords):
+                filtered.append(listing)
+                if len(filtered) >= max_results:
+                    break
+
+        logger.info(f"🔍 Filtered: {len(listings)} → {len(filtered)} listings (keywords: {' + '.join(keywords)})")
+        return filtered
 
     async def _search_cloak(self, search_term, max_results: int = 100) -> List[ListingData]:
         """Search using CloakBrowser

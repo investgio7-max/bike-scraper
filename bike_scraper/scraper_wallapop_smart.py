@@ -159,48 +159,11 @@ class WallapopScraperSmart(BaseScraper):
             logger.warning("⚠️ No keywords to filter by")
             return listings[:max_results]
 
-        # Require matching at least 2 keywords (brand + model core name)
-        # Allow fuzzy matching for variants (CFR/CF/SLX) and years
-        min_required_matches = min(2, len(keywords)) if len(keywords) >= 2 else len(keywords)
+        # TEMP: NO FILTERING - just return all listings to debug
+        # This lets us see what the raw search returns
+        logger.info(f"🔍 DEBUG MODE: Returning ALL {len(listings)} listings without filtering")
+        filtered = listings[:max_results]
 
-        filtered = []
-        for listing in listings:
-            title_lower = listing.title.lower()
-            matches = 0
-            matched_keywords = []
-
-            # Check how many keywords match (with fuzzy matching for typos)
-            for keyword in keywords:
-                # Try exact match first
-                if keyword in title_lower:
-                    matches += 1
-                    matched_keywords.append(f"{keyword}(exact)")
-                    continue
-
-                # Try fuzzy match (85% similarity threshold)
-                title_words = title_lower.split()
-                fuzzy_match = False
-                for word in title_words:
-                    similarity = difflib.SequenceMatcher(None, keyword, word).ratio()
-                    if similarity >= 0.85:  # 85% match is good enough
-                        fuzzy_match = True
-                        matched_keywords.append(f"{keyword}(fuzzy:{word})")
-                        break
-
-                if fuzzy_match:
-                    matches += 1
-
-            # Include if at least min_required_matches are found
-            if matches >= min_required_matches:
-                filtered.append(listing)
-                if len(filtered) >= max_results:
-                    break
-            else:
-                # Debug: show what matched for first few listings
-                if len(filtered) == 0 and len(listings) <= 5:
-                    logger.debug(f"❌ '{listing.title[:50]}' matched {matches}/{len(keywords)}: {matched_keywords}")
-
-        logger.info(f"🔍 Filtered: {len(listings)} → {len(filtered)} listings (need {min_required_matches}/{len(keywords)}: {' + '.join(keywords)})")
         return filtered
 
     async def _search_cloak(self, search_term, max_results: int = 100) -> List[ListingData]:

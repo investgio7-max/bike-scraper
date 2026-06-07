@@ -167,12 +167,14 @@ class WallapopScraperSmart(BaseScraper):
         for listing in listings:
             title_lower = listing.title.lower()
             matches = 0
+            matched_keywords = []
 
             # Check how many keywords match (with fuzzy matching for typos)
             for keyword in keywords:
                 # Try exact match first
                 if keyword in title_lower:
                     matches += 1
+                    matched_keywords.append(f"{keyword}(exact)")
                     continue
 
                 # Try fuzzy match (85% similarity threshold)
@@ -182,6 +184,7 @@ class WallapopScraperSmart(BaseScraper):
                     similarity = difflib.SequenceMatcher(None, keyword, word).ratio()
                     if similarity >= 0.85:  # 85% match is good enough
                         fuzzy_match = True
+                        matched_keywords.append(f"{keyword}(fuzzy:{word})")
                         break
 
                 if fuzzy_match:
@@ -192,8 +195,12 @@ class WallapopScraperSmart(BaseScraper):
                 filtered.append(listing)
                 if len(filtered) >= max_results:
                     break
+            else:
+                # Debug: show what matched for first few listings
+                if len(filtered) == 0 and len(listings) <= 5:
+                    logger.debug(f"❌ '{listing.title[:50]}' matched {matches}/{len(keywords)}: {matched_keywords}")
 
-        logger.info(f"🔍 Filtered: {len(listings)} → {len(filtered)} listings (matched {min_required_matches}/{len(keywords)} keywords)")
+        logger.info(f"🔍 Filtered: {len(listings)} → {len(filtered)} listings (need {min_required_matches}/{len(keywords)}: {' + '.join(keywords)})")
         return filtered
 
     async def _search_cloak(self, search_term, max_results: int = 100) -> List[ListingData]:

@@ -21,6 +21,11 @@ except ImportError:
     InlineKeyboardButton = None
     TelegramError = Exception
 
+try:
+    from bike_scraper.models import SentAlert
+except ImportError:
+    SentAlert = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -65,13 +70,25 @@ class TelegramAlertService:
         self,
         bot_token: Optional[str] = None,
         chat_id: Optional[str] = None,
+        db_session: Optional[object] = None,
         rate_limit: int = 20,  # per hour
         min_confidence: float = 85.0,
         min_comparables: int = 20,
         min_discount: float = 15.0,
         min_profit: float = 500.0,
     ):
-        """Initialize Telegram Alert Service"""
+        """Initialize Telegram Alert Service
+
+        Args:
+            bot_token: Telegram bot token (or use TELEGRAM_BOT_TOKEN env var)
+            chat_id: Telegram chat ID (or use TELEGRAM_CHAT_ID env var)
+            db_session: SQLAlchemy session for persistent tracking (optional)
+            rate_limit: Max messages per hour
+            min_confidence: Minimum confidence % for alerts
+            min_comparables: Minimum comparable listings
+            min_discount: Minimum discount % for alerts
+            min_profit: Minimum profit EUR for alerts
+        """
 
         self.bot_token = bot_token or os.getenv("TELEGRAM_BOT_TOKEN")
         self.chat_id = chat_id or os.getenv("TELEGRAM_CHAT_ID")
@@ -83,6 +100,9 @@ class TelegramAlertService:
         else:
             self.bot = Bot(token=self.bot_token) if Bot else None
 
+        # Database session for persistent tracking
+        self.db_session = db_session
+
         # Rate limiting
         self.rate_limit = rate_limit
         self.sent_messages: List[datetime] = []
@@ -93,7 +113,7 @@ class TelegramAlertService:
         self.min_discount = min_discount
         self.min_profit = min_profit
 
-        # Deduplication
+        # Deduplication: In-memory fallback (for backward compatibility)
         self.sent_listing_ids: set = set()
         self.alert_log: List[Dict] = []
 
@@ -119,11 +139,49 @@ class TelegramAlertService:
         return True, "Valid"
 
     def is_already_sent(self, listing_id: str) -> bool:
-        """Check if alert for this listing was already sent"""
+        """Check if alert for this listing was already sent
+
+        First checks database (persistent), then falls back to in-memory set
+        """
+        # Database check (persistent across restarts)
+        if self.db_session and SentAlert:
+            try:
+                result = self.db_session.query(SentAlert).filter(
+                    SentAlert.listing_id == listing_id
+                ).first()
+                if result:
+                    return True
+            except Exception as e:
+                logger.warning(f"⚠️  Database check failed: {str(e)}, falling back to memory")
+
+        # In-memory fallback
         return listing_id in self.sent_listing_ids
 
-    def mark_as_sent(self, listing_id: str):
-        """Mark listing as sent to avoid duplicates"""
+    def mark_as_sent(self, listing_id: str, alert: 'DealAlert', telegram_message_id: Optional[int] = None):
+        """Mark listing as sent to avoid duplicates
+
+        Saves to database (persistent) and in-memory set (fast lookup)
+        """
+        # Database persistence (survives restarts)
+        if self.db_session and SentAlert:
+            try:
+                sent_alert = SentAlert(
+                    listing_id=listing_id,
+                    listing_url=alert.listing_url,
+                    deal_grade=alert.deal_grade,
+                    bike_name=alert.bike_name,
+                    asking_price=alert.asking_price,
+                    market_price=alert.market_price,
+                    discount_percent=alert.discount_percent,
+                    telegram_message_id=telegram_message_id
+                )
+                self.db_session.add(sent_alert)
+                self.db_session.commit()
+            except Exception as e:
+                logger.error(f"❌ Failed to save to database: {str(e)}")
+                self.db_session.rollback()
+
+        # In-memory set (fast fallback)
         self.sent_listing_ids.add(listing_id)
 
     def _check_rate_limit(self) -> bool:
@@ -189,7 +247,7 @@ class TelegramAlertService:
         Returns: True if sent successfully, False otherwise
         """
 
-        # Check if already sent
+        # Check if already sent (database + memory)
         if self.is_already_sent(alert.listing_id):
             logger.info(f"⏭️  Skipping {alert.listing_id}: already sent")
             return False
@@ -214,15 +272,16 @@ class TelegramAlertService:
             message_text = self._build_message(alert)
             keyboard = self._build_keyboard(alert)
 
-            await self.bot.send_message(
+            sent_message = await self.bot.send_message(
                 chat_id=self.chat_id,
                 text=message_text,
                 reply_markup=keyboard,
                 parse_mode="HTML"
             )
 
-            # Mark as sent
-            self.mark_as_sent(alert.listing_id)
+            # Mark as sent with telegram message ID
+            telegram_message_id = sent_message.message_id if sent_message else None
+            self.mark_as_sent(alert.listing_id, alert, telegram_message_id)
             self.sent_messages.append(datetime.now())
 
             # Log
@@ -233,6 +292,7 @@ class TelegramAlertService:
                 "telegram_sent": True,
                 "bike_name": alert.bike_name,
                 "profit_potential": alert.profit_potential,
+                "telegram_message_id": telegram_message_id,
             })
 
             logger.info(f"✅ Sent alert for {alert.listing_id}: {alert.bike_name} ({alert.deal_grade})")

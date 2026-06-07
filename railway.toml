@@ -37,7 +37,7 @@ cpus = 0.5
 memory = 512
 
 [services.postgres]
-# Optional: PostgreSQL for persistent storage
-enabled = false
-# name = "bike-scraper-db"
-# version = "14"
+# PostgreSQL for persistent alert tracking (REQUIRED for production)
+enabled = true
+name = "bike-scraper-db"
+version = "15"

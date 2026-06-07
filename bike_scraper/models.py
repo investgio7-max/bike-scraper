@@ -3,7 +3,7 @@ SQLAlchemy модели для велосипедов и объявлений
 """
 
 from datetime import datetime
-from sqlalchemy import Column, String, Float, Integer, DateTime, Text, Boolean, JSON, Index, UniqueConstraint
+from sqlalchemy import Column, String, Float, Integer, BigInteger, DateTime, Text, Boolean, JSON, Index, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 import uuid
@@ -325,4 +325,35 @@ class ListingNotification(Base):
         Index('idx_notification_user', 'user_id'),
         Index('idx_notification_listing', 'listing_id'),
         Index('idx_notification_sent', 'is_sent'),
+    )
+
+
+class SentAlert(Base):
+    """Track all Telegram alerts sent to prevent duplicates on restart"""
+    __tablename__ = 'sent_alerts'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Identification
+    listing_id = Column(String(255), unique=True, index=True, nullable=False)
+    listing_url = Column(Text)
+
+    # Deal information
+    deal_grade = Column(String(20))  # A-Tier, B-Tier, etc.
+    bike_name = Column(String(500))
+
+    # Pricing
+    asking_price = Column(Float)
+    market_price = Column(Float)
+    discount_percent = Column(Float)
+
+    # Telegram tracking
+    telegram_message_id = Column(BigInteger)
+
+    # Timestamp
+    sent_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    __table_args__ = (
+        Index('idx_sent_alerts_listing_id', 'listing_id'),
+        Index('idx_sent_alerts_sent_at', 'sent_at'),
     )

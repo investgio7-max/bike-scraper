@@ -114,8 +114,13 @@ class WallapopScraperSmart(BaseScraper):
 
                 # Log first element structure for debugging
                 if listings:
-                    first_elem_str = str(listings[0])[:500]
-                    logger.debug(f"📐 First element HTML: {first_elem_str}...")
+                    first_elem = listings[0]
+                    logger.info(f"📐 First element tag: {first_elem.name}")
+                    logger.info(f"📐 First element classes: {first_elem.get('class', [])}")
+                    logger.info(f"📐 First element children: {len(list(first_elem.children))}")
+                    # Try to find text content
+                    text_content = first_elem.get_text(strip=True)[:100]
+                    logger.info(f"📐 Text preview: {text_content}")
 
                 for i, elem in enumerate(listings):
                     if len(all_listings) >= max_results:

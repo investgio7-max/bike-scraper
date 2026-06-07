@@ -141,6 +141,7 @@ class WallapopScraperSmart(BaseScraper):
         search_term can be str or dict with category_id
         """
         all_listings = []
+        seen_ids = set()  # Track seen listing IDs to avoid duplicates
         page = 0
 
         try:

@@ -115,8 +115,16 @@ class WallapopScraperCurl(BaseScraper):
 
             # Extract price
             price_elem = elem.find('span', class_=lambda x: x and 'Price' in x)
+            if not price_elem:
+                # Try alternative price selectors
+                price_elem = elem.find('span', class_=lambda x: x and 'price' in (x or '').lower())
+            if not price_elem:
+                price_elem = elem.find('span', attrs={'data-test': 'product-price'})
+
             price_text = price_elem.get_text(strip=True) if price_elem else "0"
             price = normalize_price(price_text)
+
+            logger.debug(f"💰 Title: {title}, Price: {price_text}")
 
             # Extract location
             location_elem = elem.find('span', class_=lambda x: x and 'location' in (x or '').lower())

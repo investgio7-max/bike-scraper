@@ -15,6 +15,15 @@ from bike_scraper.utils_logger import get_logger
 
 logger = get_logger('wallapop_smart')
 
+# Allowed categories - only bikes!
+ALLOWED_CATEGORIES = [
+    "bicicletas y triciclos",
+    "bicicletas de carretera",
+    "bicicleta",
+    "bike",
+    "велосипед"
+]
+
 # Get proxy from environment variable or use defaults
 PROXY_URL = os.getenv('PROXY_URL', None)
 
@@ -366,6 +375,13 @@ class WallapopScraperSmart(BaseScraper):
                 return None
 
             logger.info(f"✅ Parsed: {title[:50]}... (€{price})")
+
+            # Filter by category - only bikes allowed
+            title_lower = title.lower()
+            is_bike = any(cat.lower() in title_lower for cat in ALLOWED_CATEGORIES)
+            if not is_bike:
+                logger.debug(f"⚠️ Not a bike category, filtered: {title[:40]}")
+                return None
 
             # Filter by price
             if price and (price < MIN_PRICE or price > MAX_PRICE):

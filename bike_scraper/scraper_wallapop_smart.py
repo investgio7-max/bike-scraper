@@ -99,12 +99,14 @@ class WallapopScraperSmart(BaseScraper):
                 # Get ALL articles and filter
                 all_articles = soup.find_all('article')
                 listings = []
-                for article in all_articles:
+                for idx, article in enumerate(all_articles):
                     classes = article.get('class', [])
                     if isinstance(classes, list):
                         class_str = ' '.join(classes)
                     else:
                         class_str = str(classes)
+
+                    logger.info(f"  Article {idx}: {class_str[:100]}")
 
                     # Only keep articles with the item-card--vertical pattern
                     if 'item-card_ItemCard--vertical' in class_str:

@@ -200,20 +200,23 @@ class WallapopScraperSmart(BaseScraper):
             classes = elem.get('class', [])
             class_str = ' '.join(classes) if isinstance(classes, list) else str(classes)
 
+            logger.info(f"🔍 Classes: {class_str[:100]}")
+
             if 'item-card_ItemCard--vertical' not in class_str:
+                logger.info(f"⚠️ Wrong class, skipping: {class_str[:100]}")
                 return None
 
             # Get full text from article element
             text = elem.get_text(strip=True)
             if not text or '€' not in text:
-                logger.debug(f"⚠️ Element missing text or €: {text[:50] if text else 'empty'}")
+                logger.info(f"⚠️ Element missing text or €: {text[:50] if text else 'empty'}")
                 return None
 
             # Parse format: "1 / 3350 €Bicicleta Trek FX3 Gen 3"
             # Split on € to get price and title
             parts = text.split('€', 1)
             if len(parts) < 2:
-                logger.debug(f"⚠️ Could not split on €: {text[:100]}")
+                logger.info(f"⚠️ Could not split on €: {text[:100]}")
                 return None
 
             # Extract price from first part (last number before €)
@@ -222,7 +225,7 @@ class WallapopScraperSmart(BaseScraper):
             import re as regex
             price_match = regex.search(r'(\d+(?:[.,]\d+)?)\s*$', price_part)
             if not price_match:
-                logger.debug(f"⚠️ No price found in: {price_part[:100]}")
+                logger.info(f"⚠️ No price found in: {price_part[:100]}")
                 return None
 
             price_text = price_match.group(1)
@@ -231,7 +234,7 @@ class WallapopScraperSmart(BaseScraper):
             # Get title from second part
             title = parts[1].strip()
             if not title or title == "":
-                logger.debug(f"⚠️ Empty title after €")
+                logger.info(f"⚠️ Empty title after €")
                 return None
 
             logger.info(f"✅ Parsed: {title[:50]}... (€{price})")

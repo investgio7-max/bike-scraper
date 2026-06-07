@@ -5,7 +5,7 @@ builder = "dockerfile"
 dockerfile = "Dockerfile"
 
 [deploy]
-startCommand = "python -m bike_scraper.run_bot"
+startCommand = "python run_bot.py"
 restartPolicyType = "always"
 restartPolicyMaxRetries = 5
 

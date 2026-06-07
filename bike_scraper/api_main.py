@@ -4,6 +4,7 @@ REST API для системы парсинга велосипедов
 
 from fastapi import FastAPI, HTTPException, Query, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from typing import List, Optional
 from datetime import datetime, timedelta
 from uuid import UUID
@@ -432,7 +433,7 @@ async def health_check():
     db = get_session()
     try:
         # Проверяем подключение к БД
-        db.execute("SELECT 1")
+        db.execute(text("SELECT 1"))
         db.close()
         return {"status": "healthy", "timestamp": datetime.utcnow()}
     except Exception as e:

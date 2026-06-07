@@ -110,7 +110,7 @@ class WallapopScraperSmart(BaseScraper):
                 for elem in listings:
                     if len(all_listings) >= max_results:
                         break
-                    listing = self._parse_listing(elem)
+                    listing = self.parse_listing(elem)
                     if listing:
                         all_listings.append(listing)
 
@@ -165,7 +165,7 @@ class WallapopScraperSmart(BaseScraper):
                 for elem in listings:
                     if len(all_listings) >= max_results:
                         break
-                    listing = self._parse_listing(elem)
+                    listing = self.parse_listing(elem)
                     if listing:
                         all_listings.append(listing)
 

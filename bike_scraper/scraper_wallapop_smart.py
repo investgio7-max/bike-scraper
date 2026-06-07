@@ -48,16 +48,22 @@ class WallapopScraperSmart(BaseScraper):
             })
 
     def search(self, search_term: str, max_results: int = 100) -> List[ListingData]:
-        """Search - uses sync or async depending on available tools"""
+        """Search - try curl_cffi first (more reliable), then CloakBrowser"""
+        # Try curl_cffi first - it's lighter and often more reliable
+        if HAS_CURL:
+            logger.info("📡 Using curl_cffi for search (primary)")
+            results = self._search_curl(search_term, max_results)
+            if results:
+                return results
+            logger.warning("⚠️ curl_cffi returned 0 results, trying CloakBrowser...")
+
+        # Fallback to CloakBrowser if curl_cffi failed
         if self.use_cloak:
-            logger.info("🎭 Using CloakBrowser for search")
+            logger.info("🎭 Using CloakBrowser as fallback...")
             return asyncio.run(self._search_cloak(search_term, max_results))
-        elif HAS_CURL:
-            logger.info("📡 Using curl_cffi for search")
-            return self._search_curl(search_term, max_results)
-        else:
-            logger.error("❌ No scraping tool available!")
-            return []
+
+        logger.error("❌ No scraping tool available!")
+        return []
 
     async def _search_cloak(self, search_term: str, max_results: int = 100) -> List[ListingData]:
         """Search using CloakBrowser"""

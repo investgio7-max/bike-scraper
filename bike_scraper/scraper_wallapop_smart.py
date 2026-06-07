@@ -25,6 +25,12 @@ EXCLUDED_KEYWORDS = [
     "repuestos", "piezas", "parts", "spare",  # Запчасти
     "cuadro", "frame", "rueda", "wheel", "llanta",  # Рамы, колёса
     "fixed gear", "fixie",  # Fixed gear
+    "soporte", "support", "mount",  # Крепления
+    "manillar", "handlebar",  # Рули
+    "capsa", "caja", "box", "packaging",  # Упаковка
+    "modelo", "model",  # Масштабные модели
+    "drops", "aero", "sillín", "seat",  # Компоненты
+    "llaves", "herramientas", "tools",  # Инструменты
 ]
 
 ALLOWED_TYPES = [
@@ -145,6 +151,7 @@ class WallapopScraperSmart(BaseScraper):
         """Filter listings by keywords from search_term with fuzzy matching
 
         Requires matching first 2-3 keywords (brand + model) but allows variations on year/specs
+        EXCLUDES: spare parts, accessories, frames, wheels, etc.
         """
         import difflib
 
@@ -162,13 +169,26 @@ class WallapopScraperSmart(BaseScraper):
         # Smart filtering: require first 2 keywords (brand + model name) to be present
         # This is the core match - variants like CFR/CF/SLX are just options
         filtered = []
+        excluded_count = 0
         min_keywords = min(2, len(keywords))  # Require at least 2 keywords
 
         for listing in listings:
             # Normalize: lowercase + remove extra spaces
             title_normalized = ' '.join(listing.title.lower().split())
 
-            # Count how many keywords match
+            # FIRST: Check if this is an excluded item (spare parts, accessories, etc)
+            is_excluded = False
+            for excluded in EXCLUDED_KEYWORDS:
+                if excluded.lower() in title_normalized:
+                    is_excluded = True
+                    excluded_count += 1
+                    logger.debug(f"🚫 Excluded '{excluded}': {listing.title[:50]}")
+                    break
+
+            if is_excluded:
+                continue
+
+            # SECOND: Check keyword match (brand + model)
             matches = sum(1 for keyword in keywords if keyword in title_normalized)
 
             # Include if at least min_keywords match
@@ -177,7 +197,7 @@ class WallapopScraperSmart(BaseScraper):
                 if len(filtered) >= max_results:
                     break
 
-        logger.info(f"🔍 Filtered: {len(listings)} → {len(filtered)} listings (need {min_keywords}/{len(keywords)})")
+        logger.info(f"🔍 Filtered: {len(listings)} → {len(filtered)} listings (excluded {excluded_count}, need {min_keywords}/{len(keywords)})")
         return filtered
 
     async def _search_cloak(self, search_term, max_results: int = 100) -> List[ListingData]:

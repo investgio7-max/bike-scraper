@@ -159,8 +159,9 @@ class WallapopScraperSmart(BaseScraper):
             logger.warning("⚠️ No keywords to filter by")
             return listings[:max_results]
 
-        # Require matching first 3 keywords (brand + model + variant), but allow variations on year/specs
-        min_required_matches = min(3, len(keywords))  # At least first 3 keywords must match
+        # Require matching at least 2 keywords (brand + model core name)
+        # Allow fuzzy matching for variants (CFR/CF/SLX) and years
+        min_required_matches = min(2, len(keywords)) if len(keywords) >= 2 else len(keywords)
 
         filtered = []
         for listing in listings:

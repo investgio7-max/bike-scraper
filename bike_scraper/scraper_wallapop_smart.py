@@ -46,13 +46,17 @@ ALLOWED_CATEGORIES = [
 ]
 
 # Get proxy from environment variable or use working default
-PROXY_URL = os.getenv('PROXY_URL', 'http://c4q4gcymn334yzSF:c4q4gcymn334yzSF@185.90.61.65:10059')
+PROXY_URL = os.getenv('PROXY_URL')
 
-if PROXY_URL and PROXY_URL.startswith('http'):
-    logger.info(f"🔗 Using proxy: {PROXY_URL[:50]}...")
+# Use hardcoded proxy if env var not set
+if not PROXY_URL:
+    PROXY_URL = 'http://c4q4gcymn334yzSF:c4q4gcymn334yzSF@185.90.61.65:10059'
+    logger.info(f"🔗 Using default proxy (PROXY ID 4409181)")
+
+if PROXY_URL:
+    logger.info(f"✅ Proxy configured: {PROXY_URL[:40]}...")
 else:
-    PROXY_URL = None
-    logger.info(f"🔗 No proxy configured")
+    logger.warning(f"⚠️ No proxy available!")
 
 
 
@@ -125,13 +129,11 @@ class WallapopScraperSmart(BaseScraper):
 
             # Prepare launch options
             launch_opts = {
-                "headless": True
+                "headless": True,
+                "proxy": PROXY_URL  # Always pass proxy
             }
 
-            # Add proxy if configured
-            if PROXY_URL:
-                launch_opts["proxy"] = PROXY_URL
-                logger.debug(f"Proxy: {PROXY_URL[:50]}...")
+            logger.info(f"🔗 CloakBrowser using proxy")
 
             browser = await launch_async(**launch_opts)
             logger.info("✅ CloakBrowser launched")

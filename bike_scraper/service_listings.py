@@ -3,7 +3,7 @@
 """
 
 from datetime import datetime, timedelta
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict
 from uuid import UUID
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc

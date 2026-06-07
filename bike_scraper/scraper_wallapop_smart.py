@@ -331,6 +331,7 @@ class WallapopScraperSmart(BaseScraper):
 
     def _search_curl(self, search_term, max_results: int = 100) -> List[ListingData]:
         """Search using curl_cffi - supports str or dict with category_id"""
+        global PROXY_URL  # Allow proxy rotation
         all_listings = []
         seen_ids = set()  # Track seen listing IDs to avoid duplicates
         page = 0
@@ -382,7 +383,6 @@ class WallapopScraperSmart(BaseScraper):
                     self.anti_ban.on_request_error(403)  # Сигнал о блокировке
 
                     # Пробуем переключиться на другой прокси
-                    global PROXY_URL
                     PROXY_URL = get_next_proxy()
                     logger.info(f"🔄 Переключился на другой прокси после 403")
 

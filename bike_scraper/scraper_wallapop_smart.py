@@ -314,16 +314,16 @@ class WallapopScraperSmart(BaseScraper):
 
                 for article in all_articles:
                     classes = ' '.join(article.get('class', []))
-                    if 'item-card' in classes and 'vertical' in classes:
+                    if 'item-card_ItemCard--vertical' in classes:
                         listings.append(article)
 
                 if listings:
-                    logger.info(f"✅ Found {len(listings)} articles with item-card+vertical")
+                    logger.info(f"✅ Found {len(listings)} articles with item-card_ItemCard--vertical")
                 else:
-                    # Method 2: Try divs with item-card class
-                    logger.info("❌ No articles found, trying divs with item-card...")
-                    divs_with_card = soup.find_all('div', class_=lambda x: x and 'item-card' in x and 'vertical' in x)
-                    logger.info(f"🔍 Found {len(divs_with_card)} divs with item-card+vertical")
+                    # Method 2: Try divs with specific item-card class (NOT __image__)
+                    logger.info("❌ No articles, trying divs with item-card_ItemCard--vertical...")
+                    divs_with_card = soup.find_all('div', class_=lambda x: x and 'item-card_ItemCard--vertical' in x)
+                    logger.info(f"🔍 Found {len(divs_with_card)} divs with item-card_ItemCard--vertical")
                     listings = divs_with_card
 
                 if not listings:
@@ -346,8 +346,8 @@ class WallapopScraperSmart(BaseScraper):
                 logger.info(f"🔎 RAW ELEMENTS: {len(listings)}")
                 parsed_count = 0
                 failed_count = 0
+                duplicate_count = 0
                 for i, elem in enumerate(listings):  # Parse ALL elements
-                    logger.debug(f"  Processing element {i+1}/{len(listings)}")
                     if len(all_listings) >= max_results:
                         logger.info(f"✓ Reached max_results ({max_results}) after {i} elements")
                         break
@@ -364,13 +364,14 @@ class WallapopScraperSmart(BaseScraper):
                             all_listings.append(listing)
                             logger.info(f"✅ PARSED #{parsed_count}: {listing.title[:50]} (€{listing.price})")
                         else:
-                            logger.debug(f"Duplicate: {listing.listing_id}")
+                            duplicate_count += 1
+                            logger.debug(f"⚠️ Duplicate skipped: {listing.title[:50]}")
                     else:
                         failed_count += 1
 
-                processed = parsed_count + failed_count
+                processed = parsed_count + failed_count + duplicate_count
                 skipped = len(listings) - processed
-                logger.info(f"📊 PAGE STATS: {parsed_count} parsed | {failed_count} failed | {skipped} skipped | {len(listings)} total on page {page + 1}")
+                logger.info(f"📊 PAGE STATS: {parsed_count} parsed | {failed_count} failed | {duplicate_count} duplicates | {skipped} skipped | {len(listings)} total on page {page + 1}")
 
                 page += 1
 
@@ -489,8 +490,9 @@ class WallapopScraperSmart(BaseScraper):
 
                 for i, elem in enumerate(listings):
                     if len(all_listings) >= max_results:
+                        logger.info(f"⏹️ STOPPED: max_results ({max_results}) reached, {len(listings)-i-1} elements skipped")
                         break
-                    logger.debug(f"🔎 curl parsing element {i+1}")
+                    logger.info(f"📍 ENTERING parse_listing() for element {i+1}/{len(listings)}")
                     listing = self.parse_listing(elem)
                     if listing:
                         # Create fingerprint for duplicate detection (title + price + seller)
@@ -498,12 +500,12 @@ class WallapopScraperSmart(BaseScraper):
 
                         # Skip duplicate listings (same ID OR same fingerprint)
                         if listing.listing_id not in seen_ids and fingerprint not in seen_fingerprints:
-                            logger.info(f"✅ curl parsed: {listing.title[:50]}... (€{listing.price})")
+                            logger.info(f"✅ PARSE SUCCESSFUL: {listing.title[:60]} (€{listing.price})")
                             seen_ids.add(listing.listing_id)
                             seen_fingerprints.add(fingerprint)
                             all_listings.append(listing)
                         else:
-                            logger.debug(f"Duplicate: {listing.listing_id} or {fingerprint[:40]}")
+                            logger.info(f"⚠️ DUPLICATE: {listing.title[:60]}")
 
                 page += 1
 
@@ -528,7 +530,8 @@ class WallapopScraperSmart(BaseScraper):
 
             logger.debug(f"Classes: {class_str[:100]}")
 
-            if 'item-card_ItemCard--vertical' not in class_str:
+            # Check if this is an actual listing card (not image/content elements)
+            if 'item-card_ItemCard--vertical' not in class_str or '__image__' in class_str:
                 logger.debug(f"⚠️ Wrong class, skipping: {class_str[:100]}")
                 return None
 
@@ -598,18 +601,25 @@ class WallapopScraperSmart(BaseScraper):
             if price and (price < MIN_PRICE or price > MAX_PRICE):
                 reason = "too_cheap" if price < MIN_PRICE else "too_expensive"
                 logger.debug(f"🚫 REJECT: Price out of range ({reason}): {title[:40]}... (€{price})")
+                logger.info(f"🔴 PARSE FAILED: price_{reason} | Price: €{price} | Title: {title[:60]}")
                 return None
 
-            # Try to find URL
+            # Try to find URL - need to find the MAIN link, not first <a>
             link_elem = elem.find('a', href=True)
             url = link_elem['href'] if link_elem else ""
             if not url.startswith('http'):
                 url = f"https://www.wallapop.com{url}"
 
-            # Extract listing_id from URL (/item/12345 -> 12345)
+            # Extract listing_id from URL
+            # Old format: /item/12345 -> 12345
+            # New format: /item/canyon-aeroad-cf-slx-2019-ultegra-di2-1270158713 -> 1270158713 (number at the end)
             listing_id = "unknown"
             if url:
-                match = re.search(r'/item/(\d+)', url)
+                # Try new format first (number at end after last dash)
+                match = re.search(r'-(\d+)(?:/|$)', url)
+                if not match:
+                    # Fallback to old format (number right after /item/)
+                    match = re.search(r'/item/(\d+)', url)
                 if match:
                     listing_id = match.group(1)
 

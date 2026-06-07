@@ -107,12 +107,16 @@ class WallapopScraperSmart(BaseScraper):
                     logger.warning("⚠️ No listings found, stopping search")
                     break
 
-                for elem in listings:
+                for i, elem in enumerate(listings):
                     if len(all_listings) >= max_results:
                         break
+                    logger.debug(f"🔎 Parsing element {i+1}: {str(elem)[:200]}...")
                     listing = self.parse_listing(elem)
                     if listing:
+                        logger.info(f"✅ Parsed: {listing.title[:50]}... (€{listing.price})")
                         all_listings.append(listing)
+                    else:
+                        logger.debug(f"⚠️ Element {i+1} returned None")
 
                 page += 1
 
@@ -162,11 +166,13 @@ class WallapopScraperSmart(BaseScraper):
                 if not listings:
                     break
 
-                for elem in listings:
+                for i, elem in enumerate(listings):
                     if len(all_listings) >= max_results:
                         break
+                    logger.debug(f"🔎 curl parsing element {i+1}")
                     listing = self.parse_listing(elem)
                     if listing:
+                        logger.info(f"✅ curl parsed: {listing.title[:50]}... (€{listing.price})")
                         all_listings.append(listing)
 
                 page += 1

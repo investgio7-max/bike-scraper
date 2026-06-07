@@ -106,7 +106,7 @@ class WallapopScraperCurl(BaseScraper):
         logger.info(f"✅ Found {len(all_listings)} total listings")
         return all_listings
 
-    def _parse_listing(self, elem) -> ListingData:
+    def parse_listing(self, elem) -> ListingData:
         """Parse a single listing element"""
         try:
             # Extract title

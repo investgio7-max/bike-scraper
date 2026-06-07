@@ -6,13 +6,13 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 
 print("📦 Loading telegram_bot_final...")
 
-# Import search handler
+# Import async search handler (works properly in async bot context)
 try:
-    from bike_scraper.bot_search_handler import search_bikes, format_search_results
-    print("✅ Imported search handler")
+    from bike_scraper.bot_search_handler_async import search_bikes_async, format_search_results
+    print("✅ Imported async search handler")
 except Exception as e:
     print(f"⚠️ Could not import search handler: {e}")
-    search_bikes = None
+    search_bikes_async = None
 
 # Store user states
 user_states = {}
@@ -137,11 +137,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
 
             # Run search
-            if search_bikes:
+            if search_bikes_async:
                 try:
                     print(f"🔍 Starting search for: {text}")
-                    # Run sync search (curl_cffi is synchronous)
-                    results = search_bikes(text, max_results=10)
+                    # Run async search (CloakBrowser with proper async handling)
+                    results = await search_bikes_async(text, max_results=10)
                     result_text = format_search_results(results)
 
                     await update.message.reply_text(
@@ -162,6 +162,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     "⚠️ Функция поиска недоступна",
                     reply_markup=get_search_menu()
                 )
+                print("⚠️ search_bikes_async not available")
                 user_states[user_id] = "search"
 
     # Search menu

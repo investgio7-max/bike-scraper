@@ -7,18 +7,11 @@ from bs4 import BeautifulSoup
 import re
 import asyncio
 import os
-import json
 
 from bike_scraper.scraper_base import BaseScraper, ListingData
 from bike_scraper.config import WALLAPOP_SEARCH_URL, MIN_PRICE, MAX_PRICE
 from bike_scraper.utils_parser import BikeParser, normalize_price, parse_location
 from bike_scraper.utils_logger import get_logger
-
-try:
-    from anthropic import Anthropic
-    HAS_ANTHROPIC = True
-except ImportError:
-    HAS_ANTHROPIC = False
 
 logger = get_logger('wallapop_smart')
 
@@ -81,78 +74,6 @@ def get_next_proxy():
     proxy = PROXY_LIST[CURRENT_PROXY_IDX]
     logger.info(f"🔄 Rotating to proxy {CURRENT_PROXY_IDX + 1}/{len(PROXY_LIST)}")
     return proxy
-
-
-def estimate_liquidity(size: str) -> dict:
-    """
-    STEP 5: Estimate liquidity based on frame size
-    Returns: liquidity level and priority score
-    """
-    liquidity_map = {
-        "XS": {"level": "low", "score": 1},
-        "S": {"level": "medium", "score": 2},
-        "M": {"level": "high", "score": 3},
-        "L": {"level": "high", "score": 3},
-        "XL": {"level": "medium", "score": 2},
-        "XXL": {"level": "low", "score": 1},
-    }
-
-    size_normalized = (size or "").upper().strip()
-    result = liquidity_map.get(size_normalized, {"level": "unknown", "score": 0})
-    logger.debug(f"💧 Liquidity: {result['level']} (size: {size})")
-    return result
-
-
-def parse_bike_details(title: str) -> dict:
-    """
-    STEP 4: Parse bike details using Claude AI
-    Extract: brand, model, version, year, size, groupset, brake type
-    """
-    if not HAS_ANTHROPIC:
-        logger.debug("⚠️ Anthropic not available, skipping details parsing")
-        return {
-            "brand": "", "model": "", "version": "", "year": "",
-            "size": "", "groupset": "", "brake_type": ""
-        }
-
-    try:
-        client = Anthropic()
-        message = client.messages.create(
-            model="claude-opus-4-1-20250805",
-            max_tokens=200,
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"""Analyze this bike listing title and extract details in JSON format.
-
-Title: {title}
-
-Return ONLY valid JSON (no other text):
-{{
-  "brand": "brand name or empty string",
-  "model": "model name or empty string",
-  "version": "version/series or empty string",
-  "year": "year as number or empty string",
-  "size": "frame size (XS/S/M/L/XL/XXL) or empty string",
-  "groupset": "groupset name (Ultegra, Dura-Ace, etc) or empty string",
-  "brake_type": "Di2/mechanical/hydraulic or empty string"
-}}"""
-                }
-            ]
-        )
-
-        # Parse AI response
-        response_text = message.content[0].text.strip()
-        details = json.loads(response_text)
-        logger.debug(f"🤖 Parsed: {details['brand']} {details['model']} ({details['size']})")
-        return details
-
-    except Exception as e:
-        logger.debug(f"⚠️ AI parsing failed: {e}")
-        return {
-            "brand": "", "model": "", "version": "", "year": "",
-            "size": "", "groupset": "", "brake_type": ""
-        }
 
 
 # Try to import CloakBrowser
@@ -507,15 +428,25 @@ class WallapopScraperSmart(BaseScraper):
             if not url.startswith('http'):
                 url = f"https://www.wallapop.com{url}"
 
+            # Extract listing_id from URL (/item/12345 -> 12345)
+            listing_id = "unknown"
+            if url:
+                match = re.search(r'/item/(\d+)', url)
+                if match:
+                    listing_id = match.group(1)
+
             return ListingData(
-                title=title,
-                price=price,
-                location="",
-                seller_name="",
+                source='wallapop',
+                listing_id=listing_id,
                 url=url,
-                images=[],
-                condition="unknown",
-                description=title
+                title=title,
+                description=title,
+                price=price,
+                currency='EUR',
+                seller_name="",
+                location="",
+                country='Spain',
+                images=[]
             )
 
         except Exception as e:

@@ -40,7 +40,6 @@ async def search_bikes_async(search_term: str, max_results: int = 10) -> List[di
                 'location': listing.location,
                 'seller': listing.seller_name,
                 'url': listing.url,
-                'condition': listing.condition,
             })
 
         logger.info(f"✅ Found {len(results)} listings")

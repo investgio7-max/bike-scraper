@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, desc
 import json
 
-from bike_scraper.models import Listing, ListingHistory, ScraperLog, SellerProfile, PriceAnalysis
+from bike_scraper.models import Listing, ListingHistory, ScraperLog, SellerProfile, PriceAnalysis, MonitoringSearch
 from bike_scraper.scraper_base import ListingData
 from bike_scraper.utils_logger import get_logger
 from bike_scraper.ai_bike_parser import AIBikeParser
@@ -356,3 +356,133 @@ class ListingService:
 
         logger.info(f"🎉 Найдено {len(deals)} новых выгодных сделок за последний час")
         return deals
+
+
+class MonitoringService:
+    """Сервис для управления мониторингом велосипедов пользователей"""
+
+    @staticmethod
+    def add_monitoring(db: Session, user_id: int, search_term: str) -> Optional[MonitoringSearch]:
+        """Добавить новый мониторинг для пользователя"""
+        # Проверяем есть ли уже такой поиск
+        existing = db.query(MonitoringSearch).filter(
+            and_(
+                MonitoringSearch.user_id == user_id,
+                MonitoringSearch.search_term == search_term
+            )
+        ).first()
+
+        if existing:
+            # Если был деактивирован, активируем его
+            if not existing.is_active:
+                existing.is_active = True
+                logger.info(f"✅ Мониторинг переактивирован: {search_term} для пользователя {user_id}")
+            else:
+                logger.debug(f"ℹ️ Мониторинг уже существует: {search_term}")
+            return existing
+
+        # Создаем новый
+        monitoring = MonitoringSearch(
+            user_id=user_id,
+            search_term=search_term,
+            is_active=True,
+            notify_new_listings=True,
+            notify_price_drop=True,
+            price_drop_threshold=50.0
+        )
+        db.add(monitoring)
+        logger.info(f"✨ Новый мониторинг добавлен: {search_term} для пользователя {user_id}")
+        return monitoring
+
+    @staticmethod
+    def delete_monitoring(db: Session, user_id: int, search_term: str) -> bool:
+        """Удалить мониторинг (мягкое удаление - деактивация)"""
+        monitoring = db.query(MonitoringSearch).filter(
+            and_(
+                MonitoringSearch.user_id == user_id,
+                MonitoringSearch.search_term == search_term
+            )
+        ).first()
+
+        if monitoring:
+            monitoring.is_active = False
+            logger.info(f"🗑️ Мониторинг удален: {search_term} для пользователя {user_id}")
+            return True
+
+        return False
+
+    @staticmethod
+    def toggle_monitoring(db: Session, user_id: int, search_term: str) -> Optional[bool]:
+        """Переключить состояние мониторинга (вкл/выкл)"""
+        monitoring = db.query(MonitoringSearch).filter(
+            and_(
+                MonitoringSearch.user_id == user_id,
+                MonitoringSearch.search_term == search_term
+            )
+        ).first()
+
+        if monitoring:
+            monitoring.is_active = not monitoring.is_active
+            status = "ВКЛ" if monitoring.is_active else "ВЫКЛ"
+            logger.info(f"🔔 Мониторинг переключен на {status}: {search_term}")
+            return monitoring.is_active
+
+        return None
+
+    @staticmethod
+    def enable_monitoring(db: Session, user_id: int, search_term: str) -> bool:
+        """Включить мониторинг"""
+        monitoring = db.query(MonitoringSearch).filter(
+            and_(
+                MonitoringSearch.user_id == user_id,
+                MonitoringSearch.search_term == search_term
+            )
+        ).first()
+
+        if monitoring:
+            monitoring.is_active = True
+            logger.info(f"✅ Мониторинг включен: {search_term}")
+            return True
+
+        return False
+
+    @staticmethod
+    def disable_monitoring(db: Session, user_id: int, search_term: str) -> bool:
+        """Выключить мониторинг"""
+        monitoring = db.query(MonitoringSearch).filter(
+            and_(
+                MonitoringSearch.user_id == user_id,
+                MonitoringSearch.search_term == search_term
+            )
+        ).first()
+
+        if monitoring:
+            monitoring.is_active = False
+            logger.info(f"❌ Мониторинг выключен: {search_term}")
+            return True
+
+        return False
+
+    @staticmethod
+    def get_user_monitoring(db: Session, user_id: int, only_active: bool = False) -> List[MonitoringSearch]:
+        """Получить все мониторинги пользователя"""
+        query = db.query(MonitoringSearch).filter(MonitoringSearch.user_id == user_id)
+
+        if only_active:
+            query = query.filter(MonitoringSearch.is_active == True)
+
+        return query.order_by(MonitoringSearch.created_at.desc()).all()
+
+    @staticmethod
+    def format_monitoring_list(monitoring_list: List[MonitoringSearch]) -> str:
+        """Отформатировать список мониторингов для бота"""
+        if not monitoring_list:
+            return "📋 У вас нет активных поисков"
+
+        message = "📋 Ваши активные поиски:\n\n"
+        for i, m in enumerate(monitoring_list, 1):
+            status = "🔔 ВКЛ" if m.is_active else "🔕 ВЫКЛ"
+            message += f"{i}. {m.search_term} ({status})\n"
+
+        message += "\nИспользуйте 'Вкл/Выкл' для переключения"
+        return message

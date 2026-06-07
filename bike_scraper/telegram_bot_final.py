@@ -3,6 +3,8 @@ import os
 import asyncio
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
 
 print("📦 Loading telegram_bot_final...")
 
@@ -13,6 +15,17 @@ try:
 except Exception as e:
     print(f"⚠️ Could not import search handler: {e}")
     search_bikes_async = None
+
+# Import MonitoringService and database
+try:
+    from bike_scraper.service_listings import MonitoringService
+    from bike_scraper.config import DATABASE_URL
+    engine = create_engine(DATABASE_URL)
+    print("✅ Imported MonitoringService and database")
+except Exception as e:
+    print(f"⚠️ Could not import MonitoringService: {e}")
+    MonitoringService = None
+    engine = None
 
 # Store user states
 user_states = {}
@@ -266,18 +279,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # Monitoring menu
     elif state == "monitoring":
         if text == "➕ Добавить":
+            user_states[user_id] = "monitoring_add"
             await update.message.reply_text(
-                "➕ Введите название велосипеда:",
-                reply_markup=get_monitoring_menu()
+                "➕ Введите название велосипеда для мониторинга:\n\n"
+                "Пример: Canyon Aeroad CFR, Trek FX 3",
+                reply_markup=get_back_menu()
             )
 
         elif text == "📋 Мои поиски":
+            if MonitoringService and engine:
+                try:
+                    with Session(engine) as db:
+                        monitoring_list = MonitoringService.get_user_monitoring(db, user_id)
+                        result_text = MonitoringService.format_monitoring_list(monitoring_list)
+                except Exception as e:
+                    print(f"❌ Error getting monitoring: {e}")
+                    result_text = "❌ Ошибка получения списка поисков"
+            else:
+                result_text = "⚠️ Сервис мониторинга недоступен"
+
             await update.message.reply_text(
-                "📋 Ваши активные поиски:\n\n"
-                "1. Canyon Aeroad CF SLX (🔔 ВКЛ)\n"
-                "2. Trek FX 3 (🔔 ВКЛ)\n"
-                "3. Giant Escape 3 (🔕 ВЫКЛ)\n\n"
-                "Используйте 'Вкл/Выкл' для переключения",
+                result_text,
                 reply_markup=get_monitoring_menu()
             )
 
@@ -303,6 +325,38 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 reply_markup=get_main_menu()
             )
 
+    # Add monitoring
+    elif state == "monitoring_add":
+        if text == "⬅️ Назад":
+            user_states[user_id] = "monitoring"
+            await update.message.reply_text(
+                "💰 Управление мониторингом:",
+                reply_markup=get_monitoring_menu()
+            )
+        else:
+            # Add monitoring
+            if MonitoringService and engine:
+                try:
+                    with Session(engine) as db:
+                        MonitoringService.add_monitoring(db, user_id, text)
+                        db.commit()
+                    await update.message.reply_text(
+                        f"✅ Мониторинг добавлен: '{text}'",
+                        reply_markup=get_monitoring_menu()
+                    )
+                except Exception as e:
+                    print(f"❌ Error adding monitoring: {e}")
+                    await update.message.reply_text(
+                        f"❌ Ошибка: {e}",
+                        reply_markup=get_monitoring_menu()
+                    )
+            else:
+                await update.message.reply_text(
+                    "⚠️ Сервис мониторинга недоступен",
+                    reply_markup=get_monitoring_menu()
+                )
+            user_states[user_id] = "monitoring"
+
     # Toggle monitoring
     elif state == "monitoring_toggle":
         if text == "⬅️ Назад":
@@ -312,12 +366,34 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 reply_markup=get_monitoring_menu()
             )
         else:
-            # Toggle the monitoring for this bike
-            await update.message.reply_text(
-                f"🔔 '{text}' - статус переключен\n\n"
-                f"(Мониторинг ВКЛ/ВЫКЛ для этого велосипеда)",
-                reply_markup=get_monitoring_menu()
-            )
+            if MonitoringService and engine:
+                try:
+                    with Session(engine) as db:
+                        new_state = MonitoringService.toggle_monitoring(db, user_id, text)
+                        db.commit()
+
+                    if new_state is not None:
+                        status = "ВКЛ 🔔" if new_state else "ВЫКЛ 🔕"
+                        await update.message.reply_text(
+                            f"✅ Мониторинг для '{text}': {status}",
+                            reply_markup=get_monitoring_menu()
+                        )
+                    else:
+                        await update.message.reply_text(
+                            f"❌ Поиск '{text}' не найден",
+                            reply_markup=get_monitoring_menu()
+                        )
+                except Exception as e:
+                    print(f"❌ Error toggling monitoring: {e}")
+                    await update.message.reply_text(
+                        f"❌ Ошибка: {e}",
+                        reply_markup=get_monitoring_menu()
+                    )
+            else:
+                await update.message.reply_text(
+                    "⚠️ Сервис мониторинга недоступен",
+                    reply_markup=get_monitoring_menu()
+                )
             user_states[user_id] = "monitoring"
 
     # Delete monitoring
@@ -329,11 +405,33 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 reply_markup=get_monitoring_menu()
             )
         else:
-            # Delete the monitoring
-            await update.message.reply_text(
-                f"🗑️ '{text}' удален из мониторинга",
-                reply_markup=get_monitoring_menu()
-            )
+            if MonitoringService and engine:
+                try:
+                    with Session(engine) as db:
+                        success = MonitoringService.delete_monitoring(db, user_id, text)
+                        db.commit()
+
+                    if success:
+                        await update.message.reply_text(
+                            f"🗑️ '{text}' удален из мониторинга",
+                            reply_markup=get_monitoring_menu()
+                        )
+                    else:
+                        await update.message.reply_text(
+                            f"❌ Поиск '{text}' не найден",
+                            reply_markup=get_monitoring_menu()
+                        )
+                except Exception as e:
+                    print(f"❌ Error deleting monitoring: {e}")
+                    await update.message.reply_text(
+                        f"❌ Ошибка: {e}",
+                        reply_markup=get_monitoring_menu()
+                    )
+            else:
+                await update.message.reply_text(
+                    "⚠️ Сервис мониторинга недоступен",
+                    reply_markup=get_monitoring_menu()
+                )
             user_states[user_id] = "monitoring"
 
     # Stats and Help - just show back button

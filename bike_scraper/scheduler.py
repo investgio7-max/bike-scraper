@@ -266,8 +266,17 @@ class BikeScraperScheduler:
     def _send_deal_alert(self, listing, analysis: dict):
         """Отправить alert о выгодной сделке в Telegram"""
         try:
-            from bike_scraper.telegram_bot_final import bot
-            from telegram import ParseMode
+            import os
+            from telegram import Bot
+            import asyncio
+
+            # Get bot token and chat ID
+            bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+            chat_id = os.getenv('TELEGRAM_ADMIN_CHAT_ID')
+
+            if not bot_token or not chat_id:
+                logger.warning("⚠️ Missing TELEGRAM_BOT_TOKEN or TELEGRAM_ADMIN_CHAT_ID")
+                return
 
             bike = analysis.get('bike', {})
             market = analysis.get('market_analysis', {})
@@ -290,17 +299,26 @@ class BikeScraperScheduler:
   • Профит: €{market.get('profit_euros', 0):.0f} ({market.get('profit_percent', 0):.0f}%)
   • Сравнено с: {market.get('comparable_count', 0)} объявлениями
 
-🔗 Ссылка: {listing.url}
+🔗 <a href="{listing.url}">Ссылка на объявление</a>
 
 📍 Продавец: {listing.seller_name} (рейтинг: {listing.seller_rating})
 """
 
-            # TODO: отправить в Telegram (после добавления поддержки alerts в боте)
-            logger.info(f"📤 Alert отправлен: {listing.title[:50]}")
-            logger.debug(f"Alert message:\n{message}")
+            # Send via telegram bot
+            try:
+                bot = Bot(token=bot_token)
+                # Run async send in thread to avoid blocking
+                asyncio.run(bot.send_message(
+                    chat_id=int(chat_id),
+                    text=message,
+                    parse_mode='HTML'
+                ))
+                logger.info(f"📤 Alert отправлен в чат {chat_id}: {listing.title[:50]}")
+            except Exception as e:
+                logger.warning(f"⚠️ Не удалось отправить Telegram alert: {e}")
 
         except Exception as e:
-            logger.error(f"❌ Ошибка форматирования alert: {e}")
+            logger.error(f"❌ Ошибка в _send_deal_alert: {e}")
 
     def get_stats(self) -> dict:
         """Получить статистику"""

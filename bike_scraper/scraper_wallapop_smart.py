@@ -230,17 +230,16 @@ class WallapopScraperSmart(BaseScraper):
             logger.info("✅ Page created")
 
             while len(all_listings) < max_results:
-                # Build URL - Wallapop ignores keywords parameter, only category matters
+                # Build URL - use keywords INSIDE the category for precise filtering
                 if isinstance(search_term, dict):
-                    # Category-based search ONLY (Wallapop ignores keywords parameter)
-                    # category_id=17000 = Bikes, subcategory_id=10438 = Road bikes
-                    # We filter by keywords LOCALLY after fetching
+                    # Keyword search + Category filter (best precision)
+                    # This tells Wallapop: "Search for 'Canyon Aeroad CFR' WITHIN road bikes category"
+                    keywords = search_term.get('keywords', '').replace(' ', '+')
                     category_id = search_term.get('category_id', 17000)
                     subcategory_id = search_term.get('subcategory_id', 10438)
-                    keywords_display = search_term.get('keywords', '')
-                    # Use ONLY category for URL (Wallapop will ignore keywords param anyway)
-                    url = f"{self.base_url}?category_id={category_id}&subcategory_ids={subcategory_id}&order_by=newest&publish_date_from=last_30_days&start={page * 50}"
-                    search_display = f"{keywords_display} (road bikes)"
+                    # Use BOTH keywords AND category for maximum precision
+                    url = f"{self.base_url}?keywords={keywords}&category_id={category_id}&subcategory_ids={subcategory_id}&order_by=newest&publish_date_from=last_30_days&start={page * 50}"
+                    search_display = f"{search_term['keywords']} (road bikes category)"
                 else:
                     # Simple keyword search with DATE FILTER
                     url = f"{self.base_url}?keywords={search_term.replace(' ', '+')}&order_by=newest&publish_date_from=last_30_days&start={page * 50}"

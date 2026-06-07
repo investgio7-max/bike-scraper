@@ -127,8 +127,8 @@ class BikeScraperScheduler:
 
                     logger.info(f"✅ Найдено {len(listings)} объявлений, новых {total_new}")
 
-                    # Задержка между поисками (увеличена с 5s до 15s для Cloudflare)
-                    time.sleep(15)
+                    # Задержка между поисками (увеличена для Cloudflare)
+                    time.sleep(30)
 
                 except Exception as e:
                     logger.error(f"❌ Ошибка поиска '{search_term}': {e}")

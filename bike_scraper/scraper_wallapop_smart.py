@@ -266,6 +266,12 @@ class WallapopScraperSmart(BaseScraper):
 
                 page += 1
 
+                # Add delay between pages to avoid Cloudflare blocks
+                if len(all_listings) < max_results:
+                    import time as time_module
+                    logger.info("⏳ Waiting 5 seconds before next page...")
+                    await asyncio.sleep(5)
+
             await page_obj.close()
             await browser.close()
 

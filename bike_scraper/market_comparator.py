@@ -98,10 +98,23 @@ class BikeComponentExtractor:
         'defy': 'Defy',
     }
 
+    # Groupset BRANDS (main components)
+    GROUPSET_BRANDS = [
+        'sram red', 'sram force', 'sram rival', 'sram apex',  # Check longer first
+        'dura-ace', 'ultegra', '105', 'tiagra',
+        'campagnolo',
+    ]
+
+    # Groupset TYPES (transmission type)
+    GROUPSET_TYPES = [
+        'di2', 'axs', 'mechanical',
+    ]
+
     GROUPSETS = [
         'dura-ace', 'ultegra', '105', 'tiagra',
         'sram red', 'sram force', 'sram rival', 'sram apex',
         'sram rival axs', 'sram force axs', 'sram red axs',
+        'campagnolo',
         'di2', 'mechanical',
     ]
 
@@ -169,11 +182,41 @@ class BikeComponentExtractor:
 
     @staticmethod
     def _extract_groupset(title: str) -> str:
-        """Extract groupset like 'Di2', 'SRAM Red', '105'"""
-        for groupset in BikeComponentExtractor.GROUPSETS:
-            if groupset in title:
-                return groupset.title()
-        return "Unknown"
+        """
+        Extract FULL groupset with type: 'Ultegra Di2', 'SRAM Red AXS', '105 Mechanical'
+
+        Strategy:
+        1. Find groupset brand (Ultegra, SRAM Red, Campagnolo, etc.)
+        2. Find transmission type (Di2, AXS, Mechanical)
+        3. Combine them: "Brand Type" or just "Brand" if no type found
+        """
+        # Extract groupset brand (check longer ones first)
+        groupset_brand = None
+        for brand in BikeComponentExtractor.GROUPSET_BRANDS:
+            if brand in title:
+                groupset_brand = brand.title()
+                break
+
+        if not groupset_brand:
+            return "Unknown"
+
+        # Extract transmission type (Di2, AXS, Mechanical)
+        transmission_type = None
+        for trans_type in BikeComponentExtractor.GROUPSET_TYPES:
+            if trans_type in title:
+                transmission_type = trans_type.title()
+                break
+
+        # Combine brand + type
+        if transmission_type:
+            # Special case: SRAM uses "AXS" but we already have it in the full name "SRAM Force AXS"
+            # Don't double-add if it's already there
+            if 'axs' in groupset_brand.lower():
+                return groupset_brand  # "Sram Red Axs" is complete
+            else:
+                return f"{groupset_brand} {transmission_type}"  # "Ultegra Di2"
+        else:
+            return groupset_brand
 
     @staticmethod
     def _extract_year(title: str) -> Optional[int]:

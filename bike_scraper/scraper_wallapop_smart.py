@@ -394,19 +394,19 @@ class WallapopScraperSmart(BaseScraper):
 
             logger.info(f"✅ Parsed: {title[:50]}... (€{price})")
 
-            # STEP 2 & 3: Filter by type and brand
+            # STEP 2 & 3: Filter by type and brand (Phase 1)
             title_lower = title.lower()
 
-            # Exclude unwanted types
+            # STEP 2: Exclude unwanted types (kids bikes, MTB, electric, parts, etc.)
             for excluded in EXCLUDED_KEYWORDS:
                 if excluded.lower() in title_lower:
-                    logger.debug(f"⚠️ Excluded type ({excluded}): {title[:40]}")
+                    logger.debug(f"⚠️ Excluded ({excluded}): {title[:40]}")
                     return None
 
-            # Check if it's ROAD or GRAVEL
+            # STEP 3: Only accept ROAD or GRAVEL bikes
             is_allowed_type = any(t.lower() in title_lower for t in ALLOWED_TYPES)
             if not is_allowed_type:
-                logger.debug(f"⚠️ Not ROAD/GRAVEL, filtered: {title[:40]}")
+                logger.debug(f"⚠️ Not ROAD/GRAVEL (filtered): {title[:40]}")
                 return None
 
             # STEP 3: Check brand

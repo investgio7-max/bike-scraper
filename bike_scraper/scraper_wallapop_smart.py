@@ -347,8 +347,9 @@ class WallapopScraperSmart(BaseScraper):
                 parsed_count = 0
                 failed_count = 0
                 for i, elem in enumerate(listings):  # Parse ALL elements
+                    logger.debug(f"  Processing element {i+1}/{len(listings)}")
                     if len(all_listings) >= max_results:
-                        logger.info(f"✓ Reached max_results ({max_results})")
+                        logger.info(f"✓ Reached max_results ({max_results}) after {i} elements")
                         break
                     listing = self.parse_listing(elem)
                     if listing:

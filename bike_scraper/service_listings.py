@@ -13,6 +13,7 @@ from bike_scraper.models import Listing, ListingHistory, ScraperLog, SellerProfi
 from bike_scraper.scraper_base import ListingData
 from bike_scraper.utils_logger import get_logger
 from bike_scraper.ai_bike_parser import AIBikeParser
+from bike_scraper.price_analyzer import PriceAnalyzer
 
 logger = get_logger('service')
 
@@ -98,6 +99,32 @@ class ListingService:
             listing.raw_data['ai_analysis'] = bike_dict
 
             logger.info(f"🤖 AI парсер: {bike_dict.get('brand')} {bike_dict.get('model')} ({bike_dict.get('confidence'):.0f}%)")
+
+            # Анализируем цену (сначала сохраняем, потом анализируем)
+            try:
+                db.add(listing)
+                db.flush()  # Чтобы листинг был в БД для анализа
+
+                analyzer = PriceAnalyzer(db)
+                price_analysis = analyzer.analyze_listing(listing)
+
+                market = price_analysis.get('market_analysis')
+                if market:
+                    logger.info(
+                        f"💰 Анализ цены: {bike_dict.get('brand')} {bike_dict.get('model')} €{listing.price} | "
+                        f"Рынок: €{market.get('market_median')} | "
+                        f"Профит: {market.get('profit_percent')}%"
+                    )
+
+                    # Сохраняем результаты анализа цены
+                    listing.raw_data['price_analysis'] = market
+
+                    if market.get('is_deal'):
+                        logger.info(f"🎉 ВЫГОДНАЯ СДЕЛКА! Профит: {market.get('profit_euros')}€ ({market.get('profit_percent')}%)")
+
+            except Exception as e:
+                logger.debug(f"⚠️ Ошибка анализа цены: {e}")
+
         except Exception as e:
             logger.warning(f"⚠️ AI парсер ошибка: {e}")
 
@@ -162,21 +189,43 @@ class ListingService:
         ).order_by(desc(Listing.created_at)).limit(limit).all()
 
     @staticmethod
-    def get_good_deals(db: Session, limit: int = 50) -> List[Listing]:
+    def get_good_deals(db: Session, limit: int = 50, min_profit_percent: float = 10) -> List[Tuple[Listing, Dict]]:
         """
-        Получить выгодные предложения
-        (низкая цена относительно среднего для типа велосипеда)
+        Получить выгодные предложения (профит >= min_profit_percent)
         """
-        # TODO: Реализовать алгоритм для определения выгодных предложений
-        # На основе анализа цен и типа велосипеда
+        analyzer = PriceAnalyzer(db)
+        good_deals = []
 
-        return db.query(Listing).filter(
+        # Получаем все активные объявления с AI анализом
+        listings = db.query(Listing).filter(
             and_(
                 Listing.is_active == True,
                 Listing.is_duplicate == False,
-                Listing.bike_type.isnot(None)
+                Listing.raw_data['ai_analysis'].isnot(None)
             )
-        ).order_by(Listing.price).limit(limit).all()
+        ).order_by(Listing.created_at.desc()).limit(limit * 3).all()
+
+        # Анализируем каждое
+        for listing in listings:
+            try:
+                analysis = analyzer.analyze_listing(listing)
+                market = analysis.get('market_analysis')
+
+                if market and market.get('profit_percent', 0) >= min_profit_percent:
+                    good_deals.append((listing, analysis))
+
+            except Exception as e:
+                logger.debug(f"⚠️ Ошибка анализа цены: {e}")
+                continue
+
+        # Сортируем по профиту (по убыванию)
+        good_deals.sort(
+            key=lambda x: x[1].get('market_analysis', {}).get('profit_percent', 0),
+            reverse=True
+        )
+
+        logger.info(f"💰 Найдено {len(good_deals)} выгодных сделок (профит >= {min_profit_percent}%)")
+        return good_deals[:limit]
 
     @staticmethod
     def save_scraper_log(db: Session, source: str, search_term: str,

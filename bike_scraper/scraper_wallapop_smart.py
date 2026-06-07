@@ -165,10 +165,11 @@ class WallapopScraperSmart(BaseScraper):
         min_keywords = min(2, len(keywords))  # Require at least 2 keywords
 
         for listing in listings:
-            title_lower = listing.title.lower()
+            # Normalize: lowercase + remove extra spaces
+            title_normalized = ' '.join(listing.title.lower().split())
 
             # Count how many keywords match
-            matches = sum(1 for keyword in keywords if keyword in title_lower)
+            matches = sum(1 for keyword in keywords if keyword in title_normalized)
 
             # Include if at least min_keywords match
             if matches >= min_keywords:

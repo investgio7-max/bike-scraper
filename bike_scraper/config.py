@@ -84,7 +84,7 @@ SEARCH_TERMS = [
 
 # Фильтры
 MIN_PRICE = int(os.getenv('MIN_PRICE', 100))  # EUR
-MAX_PRICE = int(os.getenv('MAX_PRICE', 5000))  # EUR
+MAX_PRICE = int(os.getenv('MAX_PRICE', 200000))  # EUR - increased to include high-end bikes like Canyon Aeroad CFR
 LOCATIONS = os.getenv('LOCATIONS', 'Spain').split(',')
 
 # =====================

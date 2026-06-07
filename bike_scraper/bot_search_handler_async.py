@@ -68,10 +68,8 @@ def format_search_results(listings: List[dict]) -> str:
 
     message = f"🎯 Найдено {len(listings)} объявлений:\n\n"
 
-    for i, listing in enumerate(listings[:5], 1):
+    # Show all listings (up to max_results which is 10)
+    for i, listing in enumerate(listings, 1):
         message += f"{i}. {format_listing_for_bot(listing)}\n\n"
-
-    if len(listings) > 5:
-        message += f"... и ещё {len(listings) - 5} объявлений\n"
 
     return message

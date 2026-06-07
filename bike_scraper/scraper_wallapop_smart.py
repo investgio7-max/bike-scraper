@@ -104,25 +104,39 @@ class WallapopScraperSmart(BaseScraper):
 
                 soup = BeautifulSoup(html, 'html.parser')
 
-                # Find item card listings
-                # Look for articles containing "item-card" in class (works with hashed class names)
-                all_articles = soup.find_all('article')
-                logger.info(f"📊 Total articles found: {len(all_articles)}")
-
-                # Log first few articles to see structure
-                for idx, article in enumerate(all_articles[:5]):
-                    classes = ' '.join(article.get('class', []))
-                    text_preview = article.get_text(strip=True)[:80]
-                    logger.info(f"  Article {idx}: classes='{classes[:100]}' text='{text_preview}'")
-
+                # Try to find listings - multiple selectors
                 listings = []
+
+                # Method 1: Try articles with item-card
+                all_articles = soup.find_all('article')
+                logger.info(f"📊 Total articles: {len(all_articles)}")
+
+                if all_articles:
+                    for idx, article in enumerate(all_articles[:3]):
+                        classes = ' '.join(article.get('class', []))
+                        text_preview = article.get_text(strip=True)[:80]
+                        logger.info(f"  Article {idx}: {classes[:80]} | {text_preview}")
+
                 for article in all_articles:
                     classes = ' '.join(article.get('class', []))
-                    # Keep articles that have item-card AND vertical pattern
                     if 'item-card' in classes and 'vertical' in classes:
                         listings.append(article)
 
-                logger.info(f"🔍 Filtered to {len(listings)} articles with item-card+vertical")
+                if listings:
+                    logger.info(f"✅ Found {len(listings)} articles with item-card+vertical")
+                else:
+                    # Method 2: Try divs with item-card class
+                    logger.info("❌ No articles found, trying divs with item-card...")
+                    divs_with_card = soup.find_all('div', class_=lambda x: x and 'item-card' in x and 'vertical' in x)
+                    logger.info(f"🔍 Found {len(divs_with_card)} divs with item-card+vertical")
+                    listings = divs_with_card
+
+                if not listings:
+                    logger.warning("⚠️ No listings found - might be empty results or error page")
+                    # Log page title for debugging
+                    title = soup.find('title')
+                    if title:
+                        logger.info(f"📄 Page title: {title.get_text()}")
 
                 if not listings:
                     listings = soup.find_all('a', attrs={'data-testid': lambda x: x and 'item' in x.lower()})

@@ -159,11 +159,18 @@ class WallapopScraperSmart(BaseScraper):
             logger.warning("⚠️ No keywords to filter by")
             return listings[:max_results]
 
-        # TEMP: NO FILTERING - just return all listings to debug
-        # This lets us see what the raw search returns
-        logger.info(f"🔍 DEBUG MODE: Returning ALL {len(listings)} listings without filtering")
-        filtered = listings[:max_results]
+        # Smart filtering: require ALL keywords to be present in title
+        filtered = []
+        for listing in listings:
+            title_lower = listing.title.lower()
 
+            # Check if ALL keywords are in title (simple substring match)
+            if all(keyword in title_lower for keyword in keywords):
+                filtered.append(listing)
+                if len(filtered) >= max_results:
+                    break
+
+        logger.info(f"🔍 Filtered: {len(listings)} → {len(filtered)} listings (all keywords: {' + '.join(keywords)})")
         return filtered
 
     async def _search_cloak(self, search_term, max_results: int = 100) -> List[ListingData]:

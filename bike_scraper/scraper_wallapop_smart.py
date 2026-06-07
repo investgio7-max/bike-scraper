@@ -197,10 +197,14 @@ class WallapopScraperSmart(BaseScraper):
             # Ultra strict: MUST have both "canyon" AND "aeroad" for Aeroad models
             if has_canyon and has_aeroad:
                 filtered.append(listing)
+                logger.debug(f"✅ INCLUDE: {listing.title[:60]}")
                 if len(filtered) >= max_results:
                     break
+            else:
+                reason = "missing_aeroad" if has_canyon else "missing_canyon"
+                logger.debug(f"🚫 REJECT: {reason} - {listing.title[:60]}")
 
-        logger.info(f"🔍 Filtered: {len(listings)} → {len(filtered)} listings (excluded {excluded_count}, need {min_keywords}/{len(keywords)})")
+        logger.info(f"📊 FILTER STATS: Input {len(listings)} → Output {len(filtered)} (excluded {excluded_count})")
         return filtered
 
     async def _search_cloak(self, search_term, max_results: int = 100) -> List[ListingData]:
@@ -339,9 +343,10 @@ class WallapopScraperSmart(BaseScraper):
                     logger.warning("⚠️ No listings found, stopping search")
                     break
 
-                logger.debug(f"🔎 Parsing {len(listings)} elements...")
+                logger.info(f"🔎 RAW ELEMENTS: {len(listings)}")
                 parsed_count = 0
-                for i, elem in enumerate(listings):
+                failed_count = 0
+                for i, elem in enumerate(listings):  # Parse ALL elements
                     if len(all_listings) >= max_results:
                         logger.info(f"✓ Reached max_results ({max_results})")
                         break
@@ -356,10 +361,13 @@ class WallapopScraperSmart(BaseScraper):
                             seen_ids.add(listing.listing_id)
                             seen_fingerprints.add(fingerprint)
                             all_listings.append(listing)
+                            logger.info(f"✅ PARSED #{parsed_count}: {listing.title[:50]} (€{listing.price})")
                         else:
-                            logger.debug(f"Duplicate: {listing.listing_id} or {fingerprint[:40]}")
+                            logger.debug(f"Duplicate: {listing.listing_id}")
+                    else:
+                        failed_count += 1
 
-                logger.info(f"📊 Parsed {parsed_count}/{len(listings)} elements on page {page + 1}")
+                logger.info(f"📊 PAGE STATS: {parsed_count} parsed | {failed_count} failed | {len(listings)} total on page {page + 1}")
 
                 page += 1
 
@@ -524,14 +532,14 @@ class WallapopScraperSmart(BaseScraper):
             # Get full text from article element
             text = elem.get_text(strip=True)
             if not text or '€' not in text:
-                logger.info(f"⚠️ Element missing text or €: {text[:50] if text else 'empty'}")
+                logger.debug(f"⚠️ REJECT: Element missing text or €")
                 return None
 
             # Parse format: "1 / 3350 €Bicicleta Trek FX3 Gen 3"
             # Split on € to get price and title
             parts = text.split('€', 1)
             if len(parts) < 2:
-                logger.info(f"⚠️ Could not split on €: {text[:100]}")
+                logger.debug(f"⚠️ REJECT: Could not split on €")
                 return None
 
             # Extract price from first part (last number before €)
@@ -540,7 +548,7 @@ class WallapopScraperSmart(BaseScraper):
             import re as regex
             price_match = regex.search(r'(\d+(?:[.,]\d+)?)\s*$', price_part)
             if not price_match:
-                logger.info(f"⚠️ No price found in: {price_part[:100]}")
+                logger.debug(f"⚠️ REJECT: No price found")
                 return None
 
             price_text = price_match.group(1)
@@ -549,10 +557,10 @@ class WallapopScraperSmart(BaseScraper):
             # Get title from second part
             title = parts[1].strip()
             if not title or title == "":
-                logger.info(f"⚠️ Empty title after €")
+                logger.debug(f"⚠️ REJECT: Empty title")
                 return None
 
-            logger.info(f"✅ Parsed: {title[:50]}... (€{price})")
+            logger.debug(f"📝 PARSED TITLE: {title[:60]}")
 
             # CRITICAL: Filter by CATEGORY - MUST be actual bike, not parts/clothes/accessories
             title_lower = title.lower()
@@ -575,7 +583,7 @@ class WallapopScraperSmart(BaseScraper):
             # STEP 2: Exclude unwanted types (kids bikes, MTB, electric, urban, etc.)
             for excluded in EXCLUDED_KEYWORDS:
                 if excluded.lower() in title_lower:
-                    logger.debug(f"⚠️ Excluded ({excluded}): {title[:40]}")
+                    logger.debug(f"🚫 REJECT: Excluded keyword '{excluded}' found in: {title[:40]}")
                     return None
 
             # STEP 3: Check brand
@@ -585,7 +593,8 @@ class WallapopScraperSmart(BaseScraper):
 
             # Filter by price
             if price and (price < MIN_PRICE or price > MAX_PRICE):
-                logger.debug(f"💸 Filtered by price: {title[:40]}... (€{price}, range: €{MIN_PRICE}-€{MAX_PRICE})")
+                reason = "too_cheap" if price < MIN_PRICE else "too_expensive"
+                logger.debug(f"🚫 REJECT: Price out of range ({reason}): {title[:40]}... (€{price})")
                 return None
 
             # Try to find URL

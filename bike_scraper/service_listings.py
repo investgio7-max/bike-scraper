@@ -308,3 +308,51 @@ class ListingService:
         for bike_type, count, avg_price, min_price, max_price in analysis_data:
             if count > 5:  # Только если достаточно данных
                 logger.info(f"📈 {bike_type}: {count} шт, avg €{avg_price:.0f}")
+
+    @staticmethod
+    def get_new_good_deals(db: Session, hours: int = 1, min_profit_percent: float = 20, min_profit_euros: float = 500) -> List[Tuple[Listing, Dict]]:
+        """
+        Получить НОВЫЕ выгодные сделки за последние N часов (для alerts)
+
+        Возвращает листинги с:
+        - Profit >= min_profit_percent ИЛИ
+        - Profit >= min_profit_euros
+        """
+        analyzer = PriceAnalyzer(db)
+        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        deals = []
+
+        # Получаем новые активные листинги с AI анализом
+        listings = db.query(Listing).filter(
+            and_(
+                Listing.is_active == True,
+                Listing.is_duplicate == False,
+                Listing.created_at >= cutoff,  # Только новые
+                Listing.raw_data['ai_analysis'].isnot(None)
+            )
+        ).order_by(Listing.created_at.desc()).all()
+
+        # Анализируем каждое
+        for listing in listings:
+            try:
+                analysis = analyzer.analyze_listing(listing)
+                market = analysis.get('market_analysis', {})
+
+                if market:
+                    profit_percent = market.get('profit_percent', 0)
+                    profit_euros = market.get('profit_euros', 0)
+
+                    # Проверяем если это выгодная сделка
+                    if profit_percent >= min_profit_percent or profit_euros >= min_profit_euros:
+                        deals.append((listing, analysis))
+                        logger.info(
+                            f"💰 ВЫГОДНАЯ СДЕЛКА НАЙДЕНА: {listing.title[:50]} "
+                            f"€{listing.price} | Профит: {profit_percent:.0f}% (€{profit_euros:.0f})"
+                        )
+
+            except Exception as e:
+                logger.debug(f"⚠️ Ошибка анализа сделки {listing.id}: {e}")
+                continue
+
+        logger.info(f"🎉 Найдено {len(deals)} новых выгодных сделок за последний час")
+        return deals

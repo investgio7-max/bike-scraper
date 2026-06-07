@@ -9,6 +9,7 @@ from typing import List
 
 from bike_scraper.config import SCRAPE_INTERVAL, SEARCH_TERMS, MAX_RESULTS
 from bike_scraper.database import get_session
+from bike_scraper.models import Listing
 from bike_scraper.scraper_wallapop_smart import create_wallapop_smart_scraper
 from bike_scraper.service_listings import ListingService
 from bike_scraper.utils_images import ImageDownloader
@@ -53,6 +54,9 @@ class BikeScraperScheduler:
 
         # Анализ цен
         schedule.every().hour.do(self.analyze_prices)
+
+        # Отправка alerts для выгодных сделок
+        schedule.every(10).minutes.do(self.send_profit_alerts)
 
         # Цикл
         try:
@@ -229,6 +233,74 @@ class BikeScraperScheduler:
             logger.error(f"❌ Ошибка анализа: {e}")
         finally:
             db.close()
+
+    def send_profit_alerts(self):
+        """Отправить Telegram alerts для выгодных сделок"""
+        try:
+            db = get_session()
+
+            # Получаем новые выгодные сделки за последний час
+            deals = ListingService.get_new_good_deals(
+                db,
+                hours=1,
+                min_profit_percent=20,
+                min_profit_euros=500
+            )
+
+            if not deals:
+                logger.debug("ℹ️  Нет новых выгодных сделок для alert")
+                return
+
+            # Отправляем alert для каждой сделки
+            for listing, analysis in deals:
+                try:
+                    self._send_deal_alert(listing, analysis)
+                except Exception as e:
+                    logger.warning(f"⚠️ Ошибка отправки alert: {e}")
+
+            db.close()
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка в send_profit_alerts: {e}")
+
+    def _send_deal_alert(self, listing, analysis: dict):
+        """Отправить alert о выгодной сделке в Telegram"""
+        try:
+            from bike_scraper.telegram_bot_final import bot
+            from telegram import ParseMode
+
+            bike = analysis.get('bike', {})
+            market = analysis.get('market_analysis', {})
+
+            # Форматируем сообщение
+            title = f"🎉 ВЫГОДНАЯ СДЕЛКА! {bike.get('brand', 'Unknown')} {bike.get('model', '')}"
+            message = f"""
+{title}
+
+📊 Детали велосипеда:
+  • Бренд: {bike.get('brand', 'N/A')}
+  • Модель: {bike.get('model', 'N/A')}
+  • Год: {bike.get('year', 'N/A')}
+  • Размер: {bike.get('size', 'N/A')}
+  • Уверенность: {bike.get('confidence', 0):.0f}%
+
+💰 Финансовая информация:
+  • Цена объявления: €{listing.price:.0f}
+  • Рыночная цена: €{market.get('market_median', 0):.0f}
+  • Профит: €{market.get('profit_euros', 0):.0f} ({market.get('profit_percent', 0):.0f}%)
+  • Сравнено с: {market.get('comparable_count', 0)} объявлениями
+
+🔗 Ссылка: {listing.url}
+
+📍 Продавец: {listing.seller_name} (рейтинг: {listing.seller_rating})
+"""
+
+            # TODO: отправить в Telegram (после добавления поддержки alerts в боте)
+            logger.info(f"📤 Alert отправлен: {listing.title[:50]}")
+            logger.debug(f"Alert message:\n{message}")
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка форматирования alert: {e}")
 
     def get_stats(self) -> dict:
         """Получить статистику"""

@@ -121,7 +121,7 @@ class WallapopScraperSmart(BaseScraper):
         page = 0
 
         try:
-            logger.info("🎭 Launching CloakBrowser...")
+            logger.info("🎭 Using CloakBrowser for search")
 
             # Prepare launch options
             launch_opts = {
@@ -131,7 +131,7 @@ class WallapopScraperSmart(BaseScraper):
             # Add proxy if configured
             if PROXY_URL:
                 launch_opts["proxy"] = PROXY_URL
-                logger.info(f"🔗 CloakBrowser will use proxy: {PROXY_URL[:50]}...")
+                logger.debug(f"Proxy: {PROXY_URL[:50]}...")
 
             browser = await launch_async(**launch_opts)
             logger.info("✅ CloakBrowser launched")
@@ -158,9 +158,9 @@ class WallapopScraperSmart(BaseScraper):
                     response = await page_obj.goto(url, wait_until='domcontentloaded', timeout=60000)
                     logger.info(f"✅ Page loaded (domcontentloaded) - Status: {response.status if response else 'Unknown'}")
 
-                    # Wait extra time for JavaScript to render search results (8 seconds for React rendering)
-                    await page_obj.wait_for_timeout(8000)
-                    logger.info("✅ Extra wait for JS rendering")
+                    # Wait extra time for JavaScript to render search results (15 seconds for React rendering)
+                    await page_obj.wait_for_timeout(15000)
+                    logger.info("✅ Extra wait for JS rendering (15s)")
 
                     # Check for Cloudflare blocks
                     if response:
@@ -378,7 +378,7 @@ class WallapopScraperSmart(BaseScraper):
             classes = elem.get('class', [])
             class_str = ' '.join(classes) if isinstance(classes, list) else str(classes)
 
-            logger.info(f"🔍 Classes: {class_str[:100]}")
+            logger.debug(f"Classes: {class_str[:100]}")
 
             if 'item-card_ItemCard--vertical' not in class_str:
                 logger.debug(f"⚠️ Wrong class, skipping: {class_str[:100]}")

@@ -30,8 +30,8 @@ def get_main_menu():
 def get_search_menu():
     """Search submenu"""
     return ReplyKeyboardMarkup([
-        [KeyboardButton("🤑 Лучшие цены"), KeyboardButton("📈 Анализ")],
-        [KeyboardButton("🔄 Статус"), KeyboardButton("⬅️ Назад")],
+        [KeyboardButton("🎯 Точный поиск"), KeyboardButton("📊 Все велосипеды")],
+        [KeyboardButton("📈 Анализ"), KeyboardButton("⬅️ Назад")],
     ], resize_keyboard=True)
 
 
@@ -140,8 +140,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 reply_markup=get_back_menu()
             )
 
-    # Waiting for search query
-    elif state == "search_input":
+    # Exact search mode
+    elif state == "search_exact":
         if text == "⬅️ Назад":
             user_states[user_id] = "search"
             await update.message.reply_text(
@@ -149,18 +149,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 reply_markup=get_search_menu()
             )
         else:
-            # User entered search query
             user_search_queries[user_id] = text
             await update.message.reply_text(
-                f"🔍 Ищу велосипеды: '{text}'\n⏳ Это может занять 30-60 секунд...",
+                f"🎯 Точный поиск: '{text}'\n⏳ Это может занять 30-60 секунд...",
                 reply_markup=get_back_menu()
             )
 
-            # Run search
             if search_bikes_async:
                 try:
-                    print(f"🔍 Starting search for: {text}")
-                    # Run async search (CloakBrowser with proper async handling)
+                    print(f"🎯 EXACT search for: {text}")
                     results = await search_bikes_async(text, max_results=10)
                     result_text = format_search_results(results)
 
@@ -169,29 +166,75 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                         reply_markup=get_search_menu()
                     )
                     user_states[user_id] = "search"
-                    print(f"✅ Search completed")
                 except Exception as e:
                     print(f"❌ Search error: {e}")
                     await update.message.reply_text(
-                        f"❌ Ошибка при поиске: {e}",
+                        f"❌ Ошибка: {e}",
                         reply_markup=get_search_menu()
                     )
                     user_states[user_id] = "search"
             else:
                 await update.message.reply_text(
-                    "⚠️ Функция поиска недоступна",
+                    "⚠️ Поиск недоступен",
                     reply_markup=get_search_menu()
                 )
-                print("⚠️ search_bikes_async not available")
+                user_states[user_id] = "search"
+
+    # All bikes search mode
+    elif state == "search_all":
+        if text == "⬅️ Назад":
+            user_states[user_id] = "search"
+            await update.message.reply_text(
+                "🔍 Выберите действие поиска:",
+                reply_markup=get_search_menu()
+            )
+        else:
+            user_search_queries[user_id] = text
+            await update.message.reply_text(
+                f"📊 Поиск: '{text}'\n⏳ Это может занять 30-60 секунд...",
+                reply_markup=get_back_menu()
+            )
+
+            if search_bikes_async:
+                try:
+                    print(f"📊 ALL search for: {text}")
+                    results = await search_bikes_async(text, max_results=20)
+                    result_text = format_search_results(results)
+
+                    await update.message.reply_text(
+                        result_text,
+                        reply_markup=get_search_menu()
+                    )
+                    user_states[user_id] = "search"
+                except Exception as e:
+                    print(f"❌ Search error: {e}")
+                    await update.message.reply_text(
+                        f"❌ Ошибка: {e}",
+                        reply_markup=get_search_menu()
+                    )
+                    user_states[user_id] = "search"
+            else:
+                await update.message.reply_text(
+                    "⚠️ Поиск недоступен",
+                    reply_markup=get_search_menu()
+                )
                 user_states[user_id] = "search"
 
     # Search menu
     elif state == "search":
-        if text == "🤑 Лучшие цены":
-            user_states[user_id] = "search_input"
+        if text == "🎯 Точный поиск":
+            user_states[user_id] = "search_exact"
             await update.message.reply_text(
-                "🔍 Введите название велосипеда для поиска:\n\n"
-                "Примеры: Trek FX 3, Giant Escape, Canyon Aeroad",
+                "🎯 Введите точное название велосипеда:\n\n"
+                "Пример: Canyon Aeroad CFR",
+                reply_markup=get_back_menu()
+            )
+
+        elif text == "📊 Все велосипеды":
+            user_states[user_id] = "search_all"
+            await update.message.reply_text(
+                "📊 Введите бренд для поиска:\n\n"
+                "Пример: Canyon, Trek, Specialized",
                 reply_markup=get_back_menu()
             )
 

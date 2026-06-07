@@ -78,26 +78,8 @@ WALLAPOP_SEARCH_URL = f'{WALLAPOP_BASE_URL}/search'
 # Используем category_id вместо текстового поиска для точности
 # category_id=17000 = Bicicletas y triciclos (10438 = Road bikes)
 SEARCH_TERMS = [
-    # PRIORITY ROAD BIKES - specific models
-    {'keywords': 'Canyon Aeroad', 'category_id': 17000, 'subcategory_id': 10438},
-    {'keywords': 'Canyon Ultimate', 'category_id': 17000, 'subcategory_id': 10438},
-    {'keywords': 'Specialized Tarmac', 'category_id': 17000, 'subcategory_id': 10438},
-    {'keywords': 'Specialized Roubaix', 'category_id': 17000, 'subcategory_id': 10438},
-    {'keywords': 'Trek Madone', 'category_id': 17000, 'subcategory_id': 10438},
-    {'keywords': 'Trek Emonda', 'category_id': 17000, 'subcategory_id': 10438},
-    {'keywords': 'Scott Addict', 'category_id': 17000, 'subcategory_id': 10438},
-    {'keywords': 'Cervelo S5', 'category_id': 17000, 'subcategory_id': 10438},
-    {'keywords': 'Cervelo R5', 'category_id': 17000, 'subcategory_id': 10438},
-    {'keywords': 'Pinarello Dogma', 'category_id': 17000, 'subcategory_id': 10438},
-
-    # GRAVEL BIKES - specific models
-    {'keywords': 'Canyon Grail', 'category_id': 17000, 'subcategory_id': 10438},
-    {'keywords': 'Canyon Inflite', 'category_id': 17000, 'subcategory_id': 10438},
-    {'keywords': 'Specialized Crux', 'category_id': 17000, 'subcategory_id': 10438},
-    {'keywords': 'Specialized Diverge', 'category_id': 17000, 'subcategory_id': 10438},
-
-    # FALLBACK - generic category search if specific models don't match
-    {'keywords': 'carretera', 'category_id': 17000, 'subcategory_id': 10438},
+    # Только Canyon Aeroad CFR - твой основной поиск
+    {'keywords': 'Canyon Aeroad CFR', 'category_id': 17000, 'subcategory_id': 10438},
 ]
 
 # Фильтры

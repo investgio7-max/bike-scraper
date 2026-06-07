@@ -94,21 +94,15 @@ class WallapopScraperSmart(BaseScraper):
 
                 soup = BeautifulSoup(html, 'html.parser')
 
-                # Try multiple selectors - find real listings (not ads)
-                listings = soup.find_all('div', class_=lambda x: x and 'ItemCard' in x)
-                logger.debug(f"🔍 ItemCard divs: {len(listings)}")
+                # Find item card listings - look for article with item-card class
+                listings = soup.find_all('article', class_=lambda x: x and 'item-card_ItemCard--vertical' in x)
+                logger.debug(f"🔍 Item card articles: {len(listings)}")
 
                 if not listings:
-                    listings = soup.find_all('a', href=lambda x: x and '/item/' in x)
-                    logger.debug(f"🔍 /item/ links: {len(listings)}")
-
-                if not listings:
-                    # article tags contain ads, try to filter them
+                    # Try alternative: all articles
                     all_articles = soup.find_all('article')
                     logger.debug(f"🔍 All article tags: {len(all_articles)}")
-                    # Filter out ads (Apple Store, Google Play, etc)
-                    listings = [a for a in all_articles if 'Apple Store' not in a.get_text() and 'Google Play' not in a.get_text()]
-                    logger.info(f"🔍 Filtered articles (non-ads): {len(listings)}")
+                    listings = all_articles
 
                 if not listings:
                     listings = soup.find_all('a', attrs={'data-testid': lambda x: x and 'item' in x.lower()})
@@ -119,14 +113,6 @@ class WallapopScraperSmart(BaseScraper):
                 if not listings:
                     logger.warning("⚠️ No listings found, stopping search")
                     break
-
-                # Log all articles to find real listings
-                if listings:
-                    logger.info(f"📊 Analyzing {len(listings)} article elements:")
-                    for idx, elem in enumerate(listings):
-                        text_content = elem.get_text(strip=True)[:60]
-                        classes = elem.get('class', [])
-                        logger.info(f"  Article {idx}: classes={classes}, text={text_content}")
 
                 for i, elem in enumerate(listings):
                     if len(all_listings) >= max_results:
@@ -206,37 +192,58 @@ class WallapopScraperSmart(BaseScraper):
         return all_listings
 
     def parse_listing(self, elem) -> ListingData:
-        """Parse listing element"""
+        """Parse listing element - Wallapop structure: "1 / 3350 €Bicicleta Trek FX3" """
         try:
-            title_elem = elem.find('h2') or elem.find('a')
-            title = title_elem.get_text(strip=True) if title_elem else "Unknown"
+            # Skip non-item elements (badges, images, etc)
+            classes = elem.get('class', [])
+            if not classes or 'item-card_ItemCard--vertical' not in str(classes):
+                return None
 
-            price_elem = elem.find('span', class_=lambda x: x and 'Price' in x)
-            price_text = price_elem.get_text(strip=True) if price_elem else "0"
+            # Get full text from article element
+            text = elem.get_text(strip=True)
+            if not text or '€' not in text:
+                return None
+
+            # Parse format: "1 / 3350 €Bicicleta Trek FX3 Gen 3"
+            # Split on € to get price and title
+            parts = text.split('€', 1)
+            if len(parts) < 2:
+                return None
+
+            # Extract price from first part (last number before €)
+            price_part = parts[0].strip()
+            # Get last number from price part
+            import re as regex
+            price_match = regex.search(r'(\d+(?:[.,]\d+)?)\s*$', price_part)
+            if not price_match:
+                return None
+
+            price_text = price_match.group(1)
             price = normalize_price(price_text)
 
-            location_elem = elem.find('span', class_=lambda x: x and 'location' in (x or '').lower())
-            location = location_elem.get_text(strip=True) if location_elem else "Unknown"
+            # Get title from second part
+            title = parts[1].strip()
+            if not title or title == "":
+                return None
 
-            seller_elem = elem.find('span', class_=lambda x: x and 'seller' in (x or '').lower())
-            seller = seller_elem.get_text(strip=True) if seller_elem else "Unknown"
+            logger.debug(f"📄 Parsed: {title[:50]}... Price: {price_text} (€{price})")
 
+            # Filter by price
+            if price and (price < MIN_PRICE or price > MAX_PRICE):
+                logger.debug(f"💸 Filtered by price: {title[:40]}... (€{price}, range: €{MIN_PRICE}-€{MAX_PRICE})")
+                return None
+
+            # Try to find URL
             link_elem = elem.find('a', href=True)
             url = link_elem['href'] if link_elem else ""
             if not url.startswith('http'):
                 url = f"https://www.wallapop.com{url}"
 
-            logger.debug(f"📄 Parsed: {title[:50]}... Price: {price_text} (€{price})")
-
-            if price and (price < MIN_PRICE or price > MAX_PRICE):
-                logger.info(f"💸 Filtered by price: {title[:40]}... (€{price}, range: €{MIN_PRICE}-€{MAX_PRICE})")
-                return None
-
             return ListingData(
                 title=title,
                 price=price,
-                location=location,
-                seller_name=seller,
+                location="",
+                seller_name="",
                 url=url,
                 images=[],
                 condition="unknown",

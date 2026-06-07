@@ -18,8 +18,17 @@ async def search_bikes_async(search_term: str, max_results: int = 10) -> List[di
         logger.info(f"🔍 Searching for: {search_term}")
 
         scraper = WallapopScraperSmart()
+
+        # Convert to category-based search (official Wallapop category)
+        # category_id=17000 = Bicicletas y triciclos
+        search_params = {
+            'keywords': search_term,
+            'category_id': 17000,
+            'subcategory_id': 10438
+        }
+
         # Call the sync search which internally uses CloakBrowser/curl_cffi
-        listings = await asyncio.to_thread(scraper.search, search_term, max_results)
+        listings = await asyncio.to_thread(scraper.search, search_params, max_results)
         scraper.close()
 
         # Convert to simple dict format for bot

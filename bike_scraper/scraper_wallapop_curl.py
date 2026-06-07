@@ -124,7 +124,7 @@ class WallapopScraperCurl(BaseScraper):
             price_text = price_elem.get_text(strip=True) if price_elem else "0"
             price = normalize_price(price_text)
 
-            logger.debug(f"💰 Title: {title}, Price: {price_text}")
+            logger.info(f"💰 Parsed: {title[:50]}... Price: {price_text}")
 
             # Extract location
             location_elem = elem.find('span', class_=lambda x: x and 'location' in (x or '').lower())
@@ -142,6 +142,7 @@ class WallapopScraperCurl(BaseScraper):
 
             # Filter by price
             if price and (price < MIN_PRICE or price > MAX_PRICE):
+                logger.info(f"💸 Filtered by price: {title[:40]}... (€{price}, range: €{MIN_PRICE}-€{MAX_PRICE})")
                 return None
 
             return ListingData(

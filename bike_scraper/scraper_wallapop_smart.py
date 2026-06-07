@@ -394,35 +394,37 @@ class WallapopScraperSmart(BaseScraper):
 
             logger.info(f"✅ Parsed: {title[:50]}... (€{price})")
 
-            # CRITICAL: Filter by CATEGORY first (only Bicicletas, not parts/accessories)
-            # Look for category in the full element text
-            full_text = elem.get_text(strip=True).lower()
-
-            # Check if this is actually a bike listing (not parts/accessories)
-            # Common bike category indicators
-            bike_categories = ['bicicleta', 'bike', 'ciclo', 'carretera', 'gravel', 'road']
-            parts_categories = ['repuesto', 'parte', 'pieza', 'cuadro', 'rueda', 'llanta',
-                              'manillar', 'manubrio', 'potencia', 'sillín', 'horquilla',
-                              'soporte', 'cesta', 'caballete', 'pedal', 'cadena']
-
-            is_bike = any(cat in full_text for cat in bike_categories)
-            is_parts = any(cat in full_text for cat in parts_categories)
-
-            # If it looks more like parts than a bike, reject it
-            if is_parts and not is_bike:
-                logger.debug(f"⚠️ Filtered (parts/accessories): {title[:40]}")
-                return None
-
-            # STEP 2 & 3: Filter by type and brand (Phase 1)
+            # CRITICAL: Filter by CATEGORY - MUST be actual bike, not parts/clothes/accessories
             title_lower = title.lower()
 
-            # STEP 2: Exclude unwanted types (kids bikes, MTB, electric, urban, etc.)
+            # STEP 1: Check if this is actually a BIKE (not clothing/accessories)
+            # Reject common non-bike categories
+            non_bike_keywords = [
+                'guantes', 'gafas', 'casco', 'maillot', 'pantalón', 'short', 'medias',
+                'zapatillas', 'zapatos', 'ropa', 'rayo', 'chaleco', 'jersey', 'camiseta',
+                'chaqueta', 'bufanda', 'calcetines', 'complemento', 'accesorio',
+                'luces', 'luz', 'faro', 'linterna', 'rodillo', 'entrenador',
+                'soporte', 'cesta', 'caballete', 'manillar', 'lote', 'set', 'combo',
+                'equipo', 'completo', 'catálogo', 'revista'
+            ]
+
+            if any(keyword in title_lower for keyword in non_bike_keywords):
+                logger.debug(f"⚠️ Filtered (not a bike): {title[:40]}")
+                return None
+
+            # STEP 2: Must contain "bicicleta" or specific bike type
+            has_bike_keyword = any(keyword in title_lower for keyword in ['bicicleta', 'bike', 'ciclo'])
+            if not has_bike_keyword:
+                logger.debug(f"⚠️ Filtered (no bike keyword): {title[:40]}")
+                return None
+
+            # STEP 3: Exclude unwanted types (kids bikes, MTB, electric, urban, etc.)
             for excluded in EXCLUDED_KEYWORDS:
                 if excluded.lower() in title_lower:
                     logger.debug(f"⚠️ Excluded ({excluded}): {title[:40]}")
                     return None
 
-            # STEP 3: Only accept ROAD or GRAVEL bikes
+            # STEP 4: Only accept ROAD or GRAVEL bikes
             is_allowed_type = any(t.lower() in title_lower for t in ALLOWED_TYPES)
             if not is_allowed_type:
                 logger.debug(f"⚠️ Not ROAD/GRAVEL (filtered): {title[:40]}")

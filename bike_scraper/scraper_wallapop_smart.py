@@ -279,7 +279,7 @@ class WallapopScraperSmart(BaseScraper):
                             seen_ids.add(listing.listing_id)
                             all_listings.append(listing)
                         else:
-                            logger.debug(f"⏭️  Skipping duplicate: {listing.listing_id}")
+                            logger.debug(f"Duplicate: {listing.listing_id}")
 
                 logger.info(f"📊 Parsed {parsed_count}/{len(listings)} elements on page {page + 1}")
 
@@ -374,7 +374,7 @@ class WallapopScraperSmart(BaseScraper):
                             seen_ids.add(listing.listing_id)
                             all_listings.append(listing)
                         else:
-                            logger.debug(f"⏭️  Skipping duplicate: {listing.listing_id}")
+                            logger.debug(f"Duplicate: {listing.listing_id}")
 
                 page += 1
 

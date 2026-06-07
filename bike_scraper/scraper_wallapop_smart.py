@@ -76,8 +76,19 @@ class WallapopScraperSmart(BaseScraper):
                 logger.info(f"📄 Loading: {url}")
 
                 try:
-                    await page_obj.goto(url, wait_until='networkidle', timeout=30000)
-                    logger.info("✅ Page loaded")
+                    response = await page_obj.goto(url, wait_until='networkidle', timeout=30000)
+                    logger.info(f"✅ Page loaded - Status: {response.status if response else 'Unknown'}")
+
+                    # Check for Cloudflare blocks
+                    if response:
+                        logger.info(f"📡 Response status: {response.status}")
+                        if response.status == 403:
+                            logger.error("❌ 403 Forbidden - Cloudflare is blocking!")
+                        elif response.status == 429:
+                            logger.error("❌ 429 Too Many Requests - Rate limited!")
+                        elif response.status >= 500:
+                            logger.error(f"❌ {response.status} Server error!")
+
                 except Exception as e:
                     logger.error(f"❌ Failed to load page: {e}")
                     if page == 0:
@@ -93,6 +104,12 @@ class WallapopScraperSmart(BaseScraper):
 
                 html = await page_obj.content()
                 logger.info(f"📊 HTML size: {len(html)} bytes")
+
+                # Check for Cloudflare error page markers
+                if 'cloudflare' in html.lower():
+                    logger.warning("⚠️ Cloudflare detected in HTML!")
+                if 'error' in html.lower() or 'problem' in html.lower():
+                    logger.warning("⚠️ Error keywords found in HTML")
 
                 # Log first 1000 chars of HTML
                 logger.debug(f"HTML preview: {html[:1000]}")
@@ -193,9 +210,22 @@ class WallapopScraperSmart(BaseScraper):
                     timeout=30
                 )
 
-                logger.debug(f"📊 Status: {response.status_code}, size: {len(response.text)}")
+                logger.info(f"📡 curl_cffi Status: {response.status_code}, size: {len(response.text)} bytes")
+
+                if response.status_code == 403:
+                    logger.error("❌ 403 Forbidden - Cloudflare is blocking curl_cffi!")
+                elif response.status_code == 429:
+                    logger.error("❌ 429 Too Many Requests - Rate limited!")
+                elif response.status_code >= 500:
+                    logger.error(f"❌ {response.status_code} Server error!")
 
                 if response.status_code != 200:
+                    logger.warning(f"⚠️ Non-200 status, stopping: {response.status_code}")
+                    break
+
+                # Check for Cloudflare in response
+                if 'cloudflare' in response.text.lower():
+                    logger.warning("⚠️ Cloudflare detected in curl_cffi response!")
                     break
 
                 soup = BeautifulSoup(response.text, 'html.parser')

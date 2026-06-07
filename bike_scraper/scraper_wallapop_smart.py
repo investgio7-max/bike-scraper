@@ -142,7 +142,9 @@ class WallapopScraperSmart(BaseScraper):
         return []
 
     def _filter_by_keywords(self, listings: List[ListingData], search_term, max_results: int) -> List[ListingData]:
-        """Filter listings by keywords from search_term"""
+        """Filter listings by keywords from search_term with fuzzy matching"""
+        import difflib
+
         # Extract keywords to search for
         keywords = []
         if isinstance(search_term, dict):
@@ -157,8 +159,29 @@ class WallapopScraperSmart(BaseScraper):
         filtered = []
         for listing in listings:
             title_lower = listing.title.lower()
-            # Check if ALL keywords are in the title
-            if all(keyword in title_lower for keyword in keywords):
+
+            # Check if ALL keywords match (with fuzzy matching for typos)
+            all_match = True
+            for keyword in keywords:
+                # Try exact match first
+                if keyword in title_lower:
+                    continue
+
+                # Try fuzzy match (85% similarity threshold)
+                # Split title into words and check similarity
+                title_words = title_lower.split()
+                fuzzy_match = False
+                for word in title_words:
+                    similarity = difflib.SequenceMatcher(None, keyword, word).ratio()
+                    if similarity >= 0.85:  # 85% match is good enough
+                        fuzzy_match = True
+                        break
+
+                if not fuzzy_match:
+                    all_match = False
+                    break
+
+            if all_match:
                 filtered.append(listing)
                 if len(filtered) >= max_results:
                     break

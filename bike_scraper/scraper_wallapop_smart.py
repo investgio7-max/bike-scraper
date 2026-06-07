@@ -228,14 +228,16 @@ class WallapopScraperSmart(BaseScraper):
             logger.info("✅ Page created")
 
             while len(all_listings) < max_results:
-                # Build URL - use keywords-based search (Wallapop does the filtering, not us!)
+                # Build URL - support both keyword search and category search
                 if isinstance(search_term, dict):
-                    # Keywords-based search (let Wallapop filter results, not local filtering)
+                    # Category-based search with keywords (best of both worlds)
+                    # category_id=17000 = Bikes, subcategory_id=10438 = Road bikes
                     keywords = search_term.get('keywords', '').replace(' ', '+')
-                    # Use keywords parameter WITHOUT category - let Wallapop do the filtering
-                    # This is MUCH more efficient than parsing all 100+ bikes and filtering locally
-                    url = f"{self.base_url}?keywords={keywords}&order_by=newest&publish_date_from=last_30_days&start={page * 50}"
-                    search_display = f"{search_term['keywords']}"
+                    category_id = search_term.get('category_id', 17000)
+                    subcategory_id = search_term.get('subcategory_id', 10438)
+                    # Use category + keywords for precise filtering
+                    url = f"{self.base_url}?keywords={keywords}&category_id={category_id}&subcategory_ids={subcategory_id}&order_by=newest&publish_date_from=last_30_days&start={page * 50}"
+                    search_display = f"{search_term['keywords']} (road bikes)"
                 else:
                     # Simple keyword search with DATE FILTER
                     url = f"{self.base_url}?keywords={search_term.replace(' ', '+')}&order_by=newest&publish_date_from=last_30_days&start={page * 50}"

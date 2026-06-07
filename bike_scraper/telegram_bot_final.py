@@ -64,6 +64,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     print("✅ Main menu shown")
 
 
+async def chat_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Get chat ID command"""
+    chat_id_value = update.effective_chat.id
+    user_id = update.effective_user.id
+
+    message = f"""
+📋 ID ИНФОРМАЦИЯ:
+
+🔹 Chat ID: `{chat_id_value}`
+🔹 User ID: `{user_id}`
+🔹 Chat Type: {update.effective_chat.type}
+
+➡️ Используй этот Chat ID для отправки alerts!
+"""
+
+    await update.message.reply_text(message, parse_mode="Markdown")
+    print(f"✅ Chat ID sent: {chat_id_value}")
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle all messages"""
     user_id = update.effective_user.id
@@ -254,6 +273,7 @@ def main():
 
     print("➕ Adding handlers...")
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("chat_id", chat_id))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("🚀 Starting polling...")

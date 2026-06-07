@@ -15,12 +15,35 @@ from bike_scraper.utils_logger import get_logger
 
 logger = get_logger('wallapop_smart')
 
-# Get proxy from environment variable
+# Get proxy from environment variable or use defaults
 PROXY_URL = os.getenv('PROXY_URL', None)
+
+# Fallback proxy list if PROXY_URL not set
+PROXY_LIST = [
+    "http://RJF8PSFG:FKVKE8QK@107.150.96.59:443",
+    "http://YYXRDURP:9UNACESG@107.150.96.59:444",
+]
+
 if PROXY_URL:
-    logger.info(f"🔗 Using proxy: {PROXY_URL[:50]}...")
+    logger.info(f"🔗 Using proxy from env: {PROXY_URL[:50]}...")
 else:
-    logger.info("📡 No proxy configured, using direct connection")
+    PROXY_URL = PROXY_LIST[0]
+    logger.info(f"🔗 Using default proxy: {PROXY_URL[:50]}...")
+
+# Current proxy index for rotation
+CURRENT_PROXY_IDX = 0
+
+
+def get_next_proxy():
+    """Get next proxy from list for rotation"""
+    global CURRENT_PROXY_IDX
+    if not PROXY_LIST:
+        return PROXY_URL
+    CURRENT_PROXY_IDX = (CURRENT_PROXY_IDX + 1) % len(PROXY_LIST)
+    proxy = PROXY_LIST[CURRENT_PROXY_IDX]
+    logger.info(f"🔄 Rotating to proxy {CURRENT_PROXY_IDX + 1}/{len(PROXY_LIST)}")
+    return proxy
+
 
 # Try to import CloakBrowser
 try:

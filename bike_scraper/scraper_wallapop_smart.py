@@ -188,13 +188,14 @@ class WallapopScraperSmart(BaseScraper):
             if is_excluded:
                 continue
 
-            # SECOND: Check keyword match (MUST have brand AND model, not just one)
-            # For "Canyon Aeroad CFR": must have BOTH "canyon" and "aeroad"
-            has_brand = any(keyword in title_normalized for keyword in keywords[:1])  # "canyon"
-            has_model = any(keyword in title_normalized for keyword in keywords[1:])  # "aeroad", "cfr"
+            # SECOND: Check keyword match (MUST have EXACT "aeroad" - not just "cf" or "cfr")
+            # For "Canyon Aeroad CFR": must have "canyon" AND "aeroad" (the model is critical!)
+            # This excludes: Canyon Ultimate, Canyon Endurace, Canyon CF SLX variants, etc
+            has_canyon = 'canyon' in title_normalized
+            has_aeroad = 'aeroad' in title_normalized
 
-            # Strict match: must have brand AND at least one model keyword
-            if has_brand and has_model:
+            # Ultra strict: MUST have both "canyon" AND "aeroad" for Aeroad models
+            if has_canyon and has_aeroad:
                 filtered.append(listing)
                 if len(filtered) >= max_results:
                     break

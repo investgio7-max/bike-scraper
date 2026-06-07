@@ -53,7 +53,7 @@ class ImageAnalyzer:
 
         try:
             message = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-opus-4-8",
                 max_tokens=1024,
                 messages=[
                     {
@@ -97,7 +97,7 @@ class ImageAnalyzer:
 
         try:
             message = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-opus-4-8",
                 max_tokens=1500,
                 messages=[
                     {
@@ -180,7 +180,7 @@ For uncertain information, mark as "uncertain" instead of guessing."""
 
         try:
             message = self.client.messages.create(
-                model="claude-3-5-sonnet-20241022",
+                model="claude-opus-4-8",
                 max_tokens=500,
                 messages=[
                     {

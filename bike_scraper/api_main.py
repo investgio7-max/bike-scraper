@@ -467,6 +467,99 @@ async def monitoring_status(db: Session = Depends(get_db)):
 
 
 # =====================
+# ROUTES - TELEGRAM TESTING
+# =====================
+
+@app.post("/test-alert", tags=["Testing"])
+async def send_test_alert(db: Session = Depends(get_db)):
+    """Send test deal alert to configured Telegram chat
+
+    Used for smoke testing that Telegram alert system works correctly.
+    Returns message_id and chat_id for verification.
+
+    Returns:
+        {
+            "status": "success",
+            "message": "test alert sent",
+            "chat_id": 123456789,
+            "message_id": 125,
+            "timestamp": "2026-06-07T14:30:00"
+        }
+    """
+    import os
+    import asyncio
+    from bike_scraper.telegram_alerts import TelegramAlertService, DealAlert
+
+    try:
+        # Get Telegram credentials
+        bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+        chat_id = os.getenv("TELEGRAM_CHAT_ID")
+
+        if not bot_token or not chat_id:
+            raise HTTPException(
+                status_code=400,
+                detail="TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not configured"
+            )
+
+        # Create test deal
+        test_deal = DealAlert(
+            listing_id="test_deal_api",
+            bike_name="Canyon Aeroad CF SLX 8 Di2 2022",
+            asking_price=2900,
+            market_price=4200,
+            discount_percent=30.95,
+            profit_potential=1300,
+            size="M",
+            groupset="Ultegra Di2",
+            year=2022,
+            confidence=95.0,
+            comparable_count=37,
+            listing_url="https://example.com/test-bike",
+            deal_grade="A-Tier"
+        )
+
+        # Send alert
+        from telegram import Bot
+        bot = Bot(token=bot_token)
+
+        alert_service = TelegramAlertService(
+            bot_token=bot_token,
+            chat_id=chat_id,
+            db_session=db
+        )
+
+        message_text = alert_service._build_message(test_deal)
+        keyboard = alert_service._build_keyboard(test_deal)
+
+        # Send message
+        message = await bot.send_message(
+            chat_id=chat_id,
+            text=message_text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+
+        logger.info(f"✅ Test alert sent: message_id={message.message_id}, chat_id={message.chat_id}")
+
+        return {
+            "status": "success",
+            "message": "test alert sent",
+            "chat_id": message.chat_id,
+            "message_id": message.message_id,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to send test alert: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send test alert: {str(e)}"
+        )
+
+
+# =====================
 # ROUTES - HEALTH
 # =====================
 

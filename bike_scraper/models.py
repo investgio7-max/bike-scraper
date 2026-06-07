@@ -357,3 +357,39 @@ class SentAlert(Base):
         Index('idx_sent_alerts_listing_id', 'listing_id'),
         Index('idx_sent_alerts_sent_at', 'sent_at'),
     )
+
+
+class UserDealAction(Base):
+    """Track user actions on deal alerts (bought, ignored, marked)
+
+    Records when a user clicks a button on a deal alert message.
+    Enables deduplication of button clicks and tracking deal fate.
+    """
+    __tablename__ = 'user_deal_actions'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # User identification
+    user_id = Column(Integer, index=True)  # Telegram user ID
+
+    # Deal identification
+    listing_id = Column(String(255), index=True)
+    telegram_message_id = Column(BigInteger)  # Links to sent_alerts.telegram_message_id
+
+    # Action details
+    action_type = Column(String(20), index=True)  # 'bought', 'ignored', 'marked'
+    action_value = Column(String(255))  # Additional data (e.g., price paid)
+
+    # Timestamp
+    action_timestamp = Column(DateTime, default=datetime.utcnow, index=True)
+
+    # Prevent duplicate button clicks
+    __table_args__ = (
+        UniqueConstraint(
+            'telegram_message_id',
+            'action_type',
+            name='uq_user_action_dedup'
+        ),
+        Index('idx_user_action', 'user_id', 'action_timestamp'),
+        Index('idx_user_action_listing', 'listing_id', 'action_type'),
+    )

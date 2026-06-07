@@ -8,6 +8,14 @@ from sqlalchemy import create_engine
 
 print("📦 Loading telegram_bot_final...")
 
+# Import callback handlers for Telegram inline buttons
+try:
+    from bike_scraper.telegram_callback_handlers import register_callbacks
+    print("✅ Imported callback handlers")
+except Exception as e:
+    print(f"⚠️  Could not import callback handlers: {e}")
+    register_callbacks = None
+
 # Import async search handler (works properly in async bot context)
 try:
     from bike_scraper.bot_search_handler_async import search_bikes_async, format_search_results
@@ -460,6 +468,13 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("chat_id", chat_id))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+
+    # Register callback handlers for inline buttons
+    if register_callbacks:
+        print("➕ Registering callback handlers...")
+        register_callbacks(app)
+    else:
+        print("⚠️  Callback handlers not available (optional)")
 
     print("🚀 Starting polling...")
     # drop_pending_updates=True helps avoid conflict errors from previous instances

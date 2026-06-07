@@ -107,10 +107,15 @@ class WallapopScraperSmart(BaseScraper):
                     logger.warning("⚠️ No listings found, stopping search")
                     break
 
+                # Log first element structure for debugging
+                if listings:
+                    first_elem_str = str(listings[0])[:500]
+                    logger.debug(f"📐 First element HTML: {first_elem_str}...")
+
                 for i, elem in enumerate(listings):
                     if len(all_listings) >= max_results:
                         break
-                    logger.debug(f"🔎 Parsing element {i+1}: {str(elem)[:200]}...")
+                    logger.debug(f"🔎 Parsing element {i+1}")
                     listing = self.parse_listing(elem)
                     if listing:
                         logger.info(f"✅ Parsed: {listing.title[:50]}... (€{listing.price})")

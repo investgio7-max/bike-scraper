@@ -572,23 +572,11 @@ class WallapopScraperSmart(BaseScraper):
                 logger.debug(f"⚠️ Filtered (not a bike): {title[:40]}")
                 return None
 
-            # STEP 2: Must contain "bicicleta" or specific bike type
-            has_bike_keyword = any(keyword in title_lower for keyword in ['bicicleta', 'bike', 'ciclo'])
-            if not has_bike_keyword:
-                logger.debug(f"⚠️ Filtered (no bike keyword): {title[:40]}")
-                return None
-
-            # STEP 3: Exclude unwanted types (kids bikes, MTB, electric, urban, etc.)
+            # STEP 2: Exclude unwanted types (kids bikes, MTB, electric, urban, etc.)
             for excluded in EXCLUDED_KEYWORDS:
                 if excluded.lower() in title_lower:
                     logger.debug(f"⚠️ Excluded ({excluded}): {title[:40]}")
                     return None
-
-            # STEP 4: Only accept ROAD or GRAVEL bikes
-            is_allowed_type = any(t.lower() in title_lower for t in ALLOWED_TYPES)
-            if not is_allowed_type:
-                logger.debug(f"⚠️ Not ROAD/GRAVEL (filtered): {title[:40]}")
-                return None
 
             # STEP 3: Check brand
             has_priority_brand = any(brand.lower() in title_lower for brand in PRIORITY_BRANDS)

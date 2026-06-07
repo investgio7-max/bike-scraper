@@ -394,10 +394,29 @@ class WallapopScraperSmart(BaseScraper):
 
             logger.info(f"✅ Parsed: {title[:50]}... (€{price})")
 
+            # CRITICAL: Filter by CATEGORY first (only Bicicletas, not parts/accessories)
+            # Look for category in the full element text
+            full_text = elem.get_text(strip=True).lower()
+
+            # Check if this is actually a bike listing (not parts/accessories)
+            # Common bike category indicators
+            bike_categories = ['bicicleta', 'bike', 'ciclo', 'carretera', 'gravel', 'road']
+            parts_categories = ['repuesto', 'parte', 'pieza', 'cuadro', 'rueda', 'llanta',
+                              'manillar', 'manubrio', 'potencia', 'sillín', 'horquilla',
+                              'soporte', 'cesta', 'caballete', 'pedal', 'cadena']
+
+            is_bike = any(cat in full_text for cat in bike_categories)
+            is_parts = any(cat in full_text for cat in parts_categories)
+
+            # If it looks more like parts than a bike, reject it
+            if is_parts and not is_bike:
+                logger.debug(f"⚠️ Filtered (parts/accessories): {title[:40]}")
+                return None
+
             # STEP 2 & 3: Filter by type and brand (Phase 1)
             title_lower = title.lower()
 
-            # STEP 2: Exclude unwanted types (kids bikes, MTB, electric, parts, etc.)
+            # STEP 2: Exclude unwanted types (kids bikes, MTB, electric, urban, etc.)
             for excluded in EXCLUDED_KEYWORDS:
                 if excluded.lower() in title_lower:
                     logger.debug(f"⚠️ Excluded ({excluded}): {title[:40]}")

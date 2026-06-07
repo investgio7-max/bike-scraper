@@ -188,11 +188,13 @@ class WallapopScraperSmart(BaseScraper):
             if is_excluded:
                 continue
 
-            # SECOND: Check keyword match (brand + model)
-            matches = sum(1 for keyword in keywords if keyword in title_normalized)
+            # SECOND: Check keyword match (MUST have brand AND model, not just one)
+            # For "Canyon Aeroad CFR": must have BOTH "canyon" and "aeroad"
+            has_brand = any(keyword in title_normalized for keyword in keywords[:1])  # "canyon"
+            has_model = any(keyword in title_normalized for keyword in keywords[1:])  # "aeroad", "cfr"
 
-            # Include if at least min_keywords match
-            if matches >= min_keywords:
+            # Strict match: must have brand AND at least one model keyword
+            if has_brand and has_model:
                 filtered.append(listing)
                 if len(filtered) >= max_results:
                     break

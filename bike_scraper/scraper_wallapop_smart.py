@@ -146,19 +146,13 @@ class WallapopScraperSmart(BaseScraper):
         try:
             logger.info("🎭 Using CloakBrowser for search")
 
-            # Prepare launch options с включением человеческого поведения
+            # Prepare launch options
             launch_opts = {
                 "headless": True,
-                "proxy": PROXY_URL,  # Always pass proxy
-                # 🤖 Встроенные функции человеческого поведения CloakBrowser:
-                "human_behavior": True,  # Включаем имитацию человека
-                "disable_blink_features": [
-                    "AutomationControlled",  # Скрываем automation контроль
-                    "ChromeHeadless"  # Скрываем headless режим
-                ]
+                "proxy": PROXY_URL  # Always pass proxy
             }
 
-            logger.info(f"🔗 CloakBrowser with human behavior + proxy")
+            logger.info(f"🔗 CloakBrowser using proxy")
 
             browser = await launch_async(**launch_opts)
             logger.info("✅ CloakBrowser launched")
@@ -185,24 +179,7 @@ class WallapopScraperSmart(BaseScraper):
                     response = await page_obj.goto(url, wait_until='domcontentloaded', timeout=60000)
                     logger.info(f"✅ Page loaded (domcontentloaded) - Status: {response.status if response else 'Unknown'}")
 
-                    # 🤖 Имитация человеческого поведения:
-                    # 1. Случайное прокручивание страницы
-                    scroll_height = await page_obj.evaluate("document.body.scrollHeight")
-                    for _ in range(random.randint(2, 4)):
-                        scroll_y = random.randint(0, int(scroll_height))
-                        await page_obj.evaluate(f"window.scrollBy(0, {scroll_y})")
-                        await page_obj.wait_for_timeout(random.uniform(500, 1500))  # Пауза при "чтении"
-
-                    logger.info("🤖 Human-like scrolling simulated")
-
-                    # 2. Случайные движения мыши
-                    await page_obj.mouse.move(
-                        random.randint(100, 800),
-                        random.randint(100, 600)
-                    )
-                    await page_obj.wait_for_timeout(random.uniform(300, 800))
-
-                    # 3. Дополнительное ожидание для JS рендеринга (15 секунд)
+                    # Wait extra time for JavaScript to render search results (15 seconds for React rendering)
                     await page_obj.wait_for_timeout(15000)
                     logger.info("✅ Extra wait for JS rendering (15s)")
 

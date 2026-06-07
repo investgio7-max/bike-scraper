@@ -29,7 +29,7 @@ EXCLUDED_KEYWORDS = [
     "manillar", "handlebar",  # Рули
     "capsa", "caja", "box", "packaging",  # Упаковка
     "modelo", "model",  # Масштабные модели
-    "drops", "aero", "sillín", "seat",  # Компоненты
+    "drops", "sillín", "seat",  # Компоненты (removed "aero" to not exclude "aeroad" bikes)
     "llaves", "herramientas", "tools",  # Инструменты
 ]
 

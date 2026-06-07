@@ -94,13 +94,21 @@ class WallapopScraperSmart(BaseScraper):
 
                 soup = BeautifulSoup(html, 'html.parser')
 
-                # Try multiple selectors
+                # Try multiple selectors - find real listings (not ads)
                 listings = soup.find_all('div', class_=lambda x: x and 'ItemCard' in x)
-                logger.info(f"🔍 ItemCard divs: {len(listings)}")
+                logger.debug(f"🔍 ItemCard divs: {len(listings)}")
 
                 if not listings:
-                    listings = soup.find_all('article')
-                    logger.info(f"🔍 article tags: {len(listings)}")
+                    listings = soup.find_all('a', href=lambda x: x and '/item/' in x)
+                    logger.debug(f"🔍 /item/ links: {len(listings)}")
+
+                if not listings:
+                    # article tags contain ads, try to filter them
+                    all_articles = soup.find_all('article')
+                    logger.debug(f"🔍 All article tags: {len(all_articles)}")
+                    # Filter out ads (Apple Store, Google Play, etc)
+                    listings = [a for a in all_articles if 'Apple Store' not in a.get_text() and 'Google Play' not in a.get_text()]
+                    logger.info(f"🔍 Filtered articles (non-ads): {len(listings)}")
 
                 if not listings:
                     listings = soup.find_all('a', attrs={'data-testid': lambda x: x and 'item' in x.lower()})
@@ -112,15 +120,13 @@ class WallapopScraperSmart(BaseScraper):
                     logger.warning("⚠️ No listings found, stopping search")
                     break
 
-                # Log first element structure for debugging
+                # Log all articles to find real listings
                 if listings:
-                    first_elem = listings[0]
-                    logger.info(f"📐 First element tag: {first_elem.name}")
-                    logger.info(f"📐 First element classes: {first_elem.get('class', [])}")
-                    logger.info(f"📐 First element children: {len(list(first_elem.children))}")
-                    # Try to find text content
-                    text_content = first_elem.get_text(strip=True)[:100]
-                    logger.info(f"📐 Text preview: {text_content}")
+                    logger.info(f"📊 Analyzing {len(listings)} article elements:")
+                    for idx, elem in enumerate(listings):
+                        text_content = elem.get_text(strip=True)[:60]
+                        classes = elem.get('class', [])
+                        logger.info(f"  Article {idx}: classes={classes}, text={text_content}")
 
                 for i, elem in enumerate(listings):
                     if len(all_listings) >= max_results:

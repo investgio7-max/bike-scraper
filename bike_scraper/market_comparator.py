@@ -207,14 +207,21 @@ class SimilarityScorer:
     """Calculate similarity score between two bikes"""
 
     # Weights for matching attributes
+    # Based on actual market price impact analysis:
+    # - Size: €0 impact → weight 5 (was 20)
+    # - Groupset: €1800 range impact → weight 95 (was 80)
+    # - Version: €900 range impact → weight 85 (was 90)
+    # - Year: €900 range impact → weight 75 (was 70)
+    # - Wheelset: minimal impact → weight 40 (was 50)
+    # - Brand/Model: critical → weight 100 (unchanged)
     WEIGHTS = {
-        'brand': 100,
-        'model': 100,
-        'version': 90,
-        'groupset': 80,
-        'year': 70,
-        'wheelset': 50,
-        'size': 20,
+        'brand': 100,      # Critical - different brand = different type
+        'model': 100,      # Critical - Aeroad vs Ultimate = huge difference
+        'version': 85,     # €500 avg difference (was 90, overweighted)
+        'groupset': 95,    # €1800 range difference (was 80, underweighted)
+        'year': 75,        # €500-700 per year difference (was 70)
+        'wheelset': 40,    # Minimal real impact (was 50)
+        'size': 5,         # Zero price impact (was 20, highly overweighted)
     }
 
     @staticmethod

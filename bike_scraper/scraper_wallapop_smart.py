@@ -174,6 +174,7 @@ class WallapopScraperSmart(BaseScraper):
         all_listings = []
         seen_ids = set()  # Track seen listing IDs to avoid duplicates
         page = 0
+        max_pages = 5  # Limit to 5 pages (250 listings) to avoid infinite scraping
 
         try:
             logger.info("🎭 Using CloakBrowser for search")
@@ -194,15 +195,16 @@ class WallapopScraperSmart(BaseScraper):
             while len(all_listings) < max_results:
                 # Build URL - support both keyword search and category search
                 if isinstance(search_term, dict):
-                    # Category-based search
+                    # Category-based search with DATE FILTER (last 30 days)
                     keywords = search_term.get('keywords', '').replace(' ', '+')
                     category_id = search_term.get('category_id', 17000)
                     subcategory_id = search_term.get('subcategory_id', 10438)
-                    url = f"{self.base_url}?keywords={keywords}&category_id={category_id}&subcategory_ids={subcategory_id}&start={page * 50}"
+                    # Add date filter: last 30 days, sorted by newest first
+                    url = f"{self.base_url}?keywords={keywords}&category_id={category_id}&subcategory_ids={subcategory_id}&order_by=newest&publish_date_from=last_30_days&start={page * 50}"
                     search_display = f"{search_term['keywords']} (cat: {category_id})"
                 else:
-                    # Simple keyword search
-                    url = f"{self.base_url}?keywords={search_term.replace(' ', '+')}&start={page * 50}"
+                    # Simple keyword search with DATE FILTER
+                    url = f"{self.base_url}?keywords={search_term.replace(' ', '+')}&order_by=newest&publish_date_from=last_30_days&start={page * 50}"
                     search_display = search_term
                 logger.info(f"📄 Loading: {search_display} (page {page + 1})")
 
@@ -318,6 +320,11 @@ class WallapopScraperSmart(BaseScraper):
 
                 page += 1
 
+                # Check if we've reached max pages limit
+                if page >= max_pages:
+                    logger.info(f"🛑 Reached max pages limit ({max_pages} pages)")
+                    break
+
                 # Add delay between pages to avoid Cloudflare blocks
                 if len(all_listings) < max_results:
                     import time as time_module
@@ -344,17 +351,20 @@ class WallapopScraperSmart(BaseScraper):
         all_listings = []
         seen_ids = set()  # Track seen listing IDs to avoid duplicates
         page = 0
+        max_pages = 5  # Limit to 5 pages (250 listings) to avoid infinite scraping
 
         while len(all_listings) < max_results:
             try:
-                # Build URL - support both keyword search and category search
+                # Build URL - support both keyword search and category search with DATE FILTER
                 if isinstance(search_term, dict):
                     keywords = search_term.get('keywords', '').replace(' ', '+')
                     category_id = search_term.get('category_id', 17000)
                     subcategory_id = search_term.get('subcategory_id', 10438)
-                    url = f"{self.base_url}?keywords={keywords}&category_id={category_id}&subcategory_ids={subcategory_id}&start={page * 50}"
+                    # Add date filter: last 30 days, sorted by newest first
+                    url = f"{self.base_url}?keywords={keywords}&category_id={category_id}&subcategory_ids={subcategory_id}&order_by=newest&publish_date_from=last_30_days&start={page * 50}"
                 else:
-                    url = f"{self.base_url}?keywords={search_term.replace(' ', '+')}&start={page * 50}"
+                    # Simple keyword search with DATE FILTER
+                    url = f"{self.base_url}?keywords={search_term.replace(' ', '+')}&order_by=newest&publish_date_from=last_30_days&start={page * 50}"
                 logger.debug(f"📄 Fetching: {url}")
 
                 try:
@@ -437,6 +447,11 @@ class WallapopScraperSmart(BaseScraper):
                             logger.debug(f"Duplicate: {listing.listing_id}")
 
                 page += 1
+
+                # Check if we've reached max pages limit
+                if page >= max_pages:
+                    logger.info(f"🛑 Reached max pages limit ({max_pages} pages)")
+                    break
 
             except Exception as e:
                 logger.error(f"❌ curl_cffi error: {e}")

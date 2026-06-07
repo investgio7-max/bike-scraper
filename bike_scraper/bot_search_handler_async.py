@@ -31,16 +31,19 @@ async def search_bikes_async(search_term: str, max_results: int = 10) -> List[di
         listings = await asyncio.to_thread(scraper.search, search_params, max_results)
         scraper.close()
 
-        # Convert to simple dict format for bot
+        # Convert to simple dict format for bot, with deduplication
         results = []
+        seen_ids = set()
         for listing in listings[:max_results]:
-            results.append({
-                'title': listing.title,
-                'price': listing.price,
-                'location': listing.location,
-                'seller': listing.seller_name,
-                'url': listing.url,
-            })
+            if listing.listing_id not in seen_ids:
+                seen_ids.add(listing.listing_id)
+                results.append({
+                    'title': listing.title,
+                    'price': listing.price,
+                    'location': listing.location,
+                    'seller': listing.seller_name,
+                    'url': listing.url,
+                })
 
         logger.info(f"✅ Found {len(results)} listings")
         return results

@@ -273,8 +273,13 @@ class WallapopScraperSmart(BaseScraper):
                         break
                     listing = self.parse_listing(elem)
                     if listing:
-                        parsed_count += 1
-                        all_listings.append(listing)
+                        # Skip duplicate listings (same ID)
+                        if listing.listing_id not in seen_ids:
+                            parsed_count += 1
+                            seen_ids.add(listing.listing_id)
+                            all_listings.append(listing)
+                        else:
+                            logger.debug(f"⏭️  Skipping duplicate: {listing.listing_id}")
 
                 logger.info(f"📊 Parsed {parsed_count}/{len(listings)} elements on page {page + 1}")
 
@@ -297,6 +302,7 @@ class WallapopScraperSmart(BaseScraper):
     def _search_curl(self, search_term, max_results: int = 100) -> List[ListingData]:
         """Search using curl_cffi - supports str or dict with category_id"""
         all_listings = []
+        seen_ids = set()  # Track seen listing IDs to avoid duplicates
         page = 0
 
         while len(all_listings) < max_results:
@@ -362,8 +368,13 @@ class WallapopScraperSmart(BaseScraper):
                     logger.debug(f"🔎 curl parsing element {i+1}")
                     listing = self.parse_listing(elem)
                     if listing:
-                        logger.info(f"✅ curl parsed: {listing.title[:50]}... (€{listing.price})")
-                        all_listings.append(listing)
+                        # Skip duplicate listings (same ID)
+                        if listing.listing_id not in seen_ids:
+                            logger.info(f"✅ curl parsed: {listing.title[:50]}... (€{listing.price})")
+                            seen_ids.add(listing.listing_id)
+                            all_listings.append(listing)
+                        else:
+                            logger.debug(f"⏭️  Skipping duplicate: {listing.listing_id}")
 
                 page += 1
 

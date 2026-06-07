@@ -256,7 +256,8 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("🚀 Starting polling...")
-    app.run_polling()
+    # drop_pending_updates=True helps avoid conflict errors from previous instances
+    app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 
 if __name__ == '__main__':

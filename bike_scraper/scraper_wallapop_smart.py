@@ -368,7 +368,9 @@ class WallapopScraperSmart(BaseScraper):
                     else:
                         failed_count += 1
 
-                logger.info(f"📊 PAGE STATS: {parsed_count} parsed | {failed_count} failed | {len(listings)} total on page {page + 1}")
+                processed = parsed_count + failed_count
+                skipped = len(listings) - processed
+                logger.info(f"📊 PAGE STATS: {parsed_count} parsed | {failed_count} failed | {skipped} skipped | {len(listings)} total on page {page + 1}")
 
                 page += 1
 

@@ -106,14 +106,23 @@ class WallapopScraperSmart(BaseScraper):
 
                 # Find item card listings
                 # Look for articles containing "item-card" in class (works with hashed class names)
+                all_articles = soup.find_all('article')
+                logger.info(f"📊 Total articles found: {len(all_articles)}")
+
+                # Log first few articles to see structure
+                for idx, article in enumerate(all_articles[:5]):
+                    classes = ' '.join(article.get('class', []))
+                    text_preview = article.get_text(strip=True)[:80]
+                    logger.info(f"  Article {idx}: classes='{classes[:100]}' text='{text_preview}'")
+
                 listings = []
-                for article in soup.find_all('article'):
+                for article in all_articles:
                     classes = ' '.join(article.get('class', []))
                     # Keep articles that have item-card AND vertical pattern
                     if 'item-card' in classes and 'vertical' in classes:
                         listings.append(article)
 
-                logger.info(f"🔍 Found {len(listings)} articles with item-card+vertical")
+                logger.info(f"🔍 Filtered to {len(listings)} articles with item-card+vertical")
 
                 if not listings:
                     listings = soup.find_all('a', attrs={'data-testid': lambda x: x and 'item' in x.lower()})

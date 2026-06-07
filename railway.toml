@@ -5,7 +5,7 @@ builder = "dockerfile"
 dockerfile = "Dockerfile"
 
 [deploy]
-startCommand = "python -m bike_scraper.telegram_alerts"
+startCommand = "python -m bike_scraper.run_bot"
 restartPolicyType = "always"
 restartPolicyMaxRetries = 5
 

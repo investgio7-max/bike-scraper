@@ -20,6 +20,7 @@ PROXY_URL = os.getenv('PROXY_URL', None)
 
 # Fallback proxy list if PROXY_URL not set
 PROXY_LIST = [
+    "http://OdQfqw55jagVc8fO:OdQfqw55jagVc8fO@37.143.131.235:14506",
     "http://RJF8PSFG:FKVKE8QK@107.150.96.59:443",
     "http://YYXRDURP:9UNACESG@107.150.96.59:444",
 ]

@@ -1,6 +1,7 @@
 """Search handler for Telegram bot - integrates with Wallapop scraper"""
 from typing import List
-from bike_scraper.scraper_wallapop_smart import WallapopScraperSmart
+import asyncio
+from bike_scraper.scraper_wallapop_curl import WallapopScraperCurl
 from bike_scraper.utils_logger import get_logger
 
 logger = get_logger('bot_search')
@@ -8,13 +9,18 @@ logger = get_logger('bot_search')
 
 def search_bikes(search_term: str, max_results: int = 10) -> List[dict]:
     """
-    Search for bikes on Wallapop (tries CloakBrowser first, falls back to curl_cffi)
+    Search for bikes on Wallapop using curl_cffi (synchronous, works in async context)
     Returns list of listings with price, location, etc.
+
+    Note: Uses curl_cffi instead of CloakBrowser because we're called from async bot context
+    where asyncio.run() would fail. curl_cffi is synchronous and works fine here.
     """
     try:
         logger.info(f"🔍 Searching for: {search_term}")
 
-        scraper = WallapopScraperSmart()
+        # Use curl_cffi scraper (synchronous) - CloakBrowser requires asyncio.run()
+        # which conflicts with bot's existing event loop
+        scraper = WallapopScraperCurl()
         listings = scraper.search(search_term, max_results=max_results)
         scraper.close()
 

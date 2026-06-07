@@ -441,9 +441,14 @@ class WallapopScraperSmart(BaseScraper):
                 price=price,
                 currency='EUR',
                 seller_name="",
+                seller_id=None,
+                seller_rating=None,
+                seller_reviews_count=None,
                 location="",
                 country='Spain',
-                images=[]
+                date_posted=None,
+                images=[],
+                raw_data={}
             )
 
         except Exception as e:

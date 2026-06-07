@@ -25,7 +25,7 @@ class PriceStatus(Enum):
     VALID = "VALID"
     PRICE_PARSE_ERROR = "PRICE_PARSE_ERROR"
     OUT_OF_RANGE = "OUT_OF_RANGE"
-    SUSPICIOUS = "SUSPICIOUS"
+    SUSPICIOUS_PRICE = "SUSPICIOUS_PRICE"  # Outlier (>70% from median)
     UNCONFIRMED = "UNCONFIRMED"
 
 
@@ -47,22 +47,40 @@ class PriceResult:
 class PriceConfig:
     """Configuration for price extraction and validation"""
 
-    # Bike price ranges (in EUR)
-    MIN_PRICE = 300  # Cheapest secondhand bike
-    MAX_PRICE = 25000  # High-end road bike
+    # ⚠️ CRITICAL RULE: Global price ceiling for secondhand bikes
+    # This is SECONDARY MARKET, not new bikes
+    GLOBAL_MAX_PRICE = 25000  # Absolute maximum for any secondhand bike
 
-    # Premium models (Aeroad, Ultimate, etc) - HIGH-END RANGE
-    # Canyon Aeroad actual prices: €25k-€110k (2nd hand cheaper)
-    # Other premium models: Trek Madone, Specialized Tarmac, etc: €15k-€50k
+    # Bike price ranges (in EUR) - SECONDHAND MARKET
+    MIN_PRICE = 300  # Cheapest secondhand bike
+    MAX_PRICE = 25000  # Maximum for ANY bike (new bikes don't apply here)
+
+    # Premium models (Aeroad, Ultimate, etc)
+    # IMPORTANT: These are SECONDHAND bikes, not new retail prices
+    # New Canyon Aeroad: €50k-€100k, but used: €5k-€20k
     PREMIUM_MODELS = [
         'aeroad', 'ultimate', 'foil', 'tarmac', 'madone',
         'dogma', 'teammachine', 's5', 'r5', 'topstone',
-        'speedmax', 'grail'
+        'speedmax', 'grail', 'colnago', 'pinarello'
     ]
 
-    # Premium models are EXPENSIVE secondhand bikes
-    PREMIUM_MIN_PRICE = 5000  # Damaged/old premium bikes
-    PREMIUM_MAX_PRICE = 120000  # High-end premium (Canyon Aeroad new is €100k+)
+    # Premium models secondhand prices (realistic for secondary market)
+    PREMIUM_MIN_PRICE = 2000  # Damaged/very old premium bikes
+    PREMIUM_MAX_PRICE = 20000  # High-end premium SECONDHAND (not new retail!)
+
+    # Market statistics for suspicious price detection
+    # Estimated median prices for secondhand bikes
+    MARKET_MEDIANS = {
+        'aeroad': 8000,  # Typical secondhand Aeroad
+        'ultimate': 7500,  # Ultimate
+        'tarmac': 6500,  # Tarmac
+        'madone': 7000,  # Madone
+        'dogma': 12000,  # Dogma (premium)
+        'default': 3000  # Default for unknown bikes
+    }
+
+    # Suspicious price threshold: 70% deviation from market median
+    SUSPICIOUS_THRESHOLD_PERCENT = 70
 
     # UI Elements to IGNORE (not prices)
     UI_NOISE_PATTERNS = [
@@ -182,6 +200,20 @@ class PriceValidator:
                 validation_details={"reason": "Detected as UI noise (rating, size, year, etc)"}
             )
 
+        # ⚠️ CRITICAL: Global price ceiling - ANY price > 25000€ is REJECTED
+        if price > PriceConfig.GLOBAL_MAX_PRICE:
+            return PriceResult(
+                price=price,
+                currency="EUR",
+                source=source,
+                confidence=0,
+                status=PriceStatus.OUT_OF_RANGE,
+                validation_details={
+                    "reason": f"GLOBAL MAXIMUM EXCEEDED: €{price} > €{PriceConfig.GLOBAL_MAX_PRICE}",
+                    "critical": True
+                }
+            )
+
         # Stage 3: Sanity Check - basic range validation
         is_premium = PriceValidator._is_premium_model(title)
         min_price = PriceConfig.PREMIUM_MIN_PRICE if is_premium else PriceConfig.MIN_PRICE
@@ -200,19 +232,10 @@ class PriceValidator:
                 }
             )
 
-        # Stage 4: Model Price Validation
-        if is_premium and not (PriceConfig.PREMIUM_MIN_PRICE <= price <= PriceConfig.PREMIUM_MAX_PRICE):
-            return PriceResult(
-                price=price,
-                currency="EUR",
-                source=source,
-                confidence=40,
-                status=PriceStatus.SUSPICIOUS,
-                validation_details={
-                    "reason": f"Premium model but price suspicious: €{price}",
-                    "expected_range": f"€{PriceConfig.PREMIUM_MIN_PRICE}-€{PriceConfig.PREMIUM_MAX_PRICE}"
-                }
-            )
+        # Stage 4: Suspicious Price Detection (>70% from market median)
+        suspicious_result = PriceValidator._check_suspicious_price(price, title)
+        if suspicious_result:
+            return suspicious_result
 
         # If we got here, price passed all checks
         confidence = 95 if source in ["DOM + OCR", "DOM + API"] else 85
@@ -260,6 +283,48 @@ class PriceValidator:
                 return True
 
         return False
+
+    @staticmethod
+    def _check_suspicious_price(price: float, title: str) -> Optional[PriceResult]:
+        """
+        Check if price is suspicious (outlier).
+
+        Price is suspicious if it deviates more than 70% from market median
+        for that bike model.
+
+        This doesn't REJECT the price, but marks it as SUSPICIOUS_PRICE
+        so it won't be used in market analysis until verified.
+        """
+        if not title:
+            return None
+
+        title_lower = title.lower()
+
+        # Find median price for this model
+        median = PriceConfig.MARKET_MEDIANS.get('default', 3000)
+        for model, model_median in PriceConfig.MARKET_MEDIANS.items():
+            if model != 'default' and model in title_lower:
+                median = model_median
+                break
+
+        # Calculate deviation percentage
+        deviation = abs(price - median) / median * 100
+
+        if deviation > PriceConfig.SUSPICIOUS_THRESHOLD_PERCENT:
+            return PriceResult(
+                price=price,
+                currency="EUR",
+                source="UNKNOWN",
+                confidence=50,
+                status=PriceStatus.SUSPICIOUS_PRICE,
+                validation_details={
+                    "reason": f"Price deviation from market median: {deviation:.1f}% (threshold: {PriceConfig.SUSPICIOUS_THRESHOLD_PERCENT}%)",
+                    "market_median": median,
+                    "deviation_percent": deviation
+                }
+            )
+
+        return None
 
 
 class PriceConfirmation:

@@ -9,7 +9,7 @@ from typing import List
 
 from bike_scraper.config import SCRAPE_INTERVAL, SEARCH_TERMS, MAX_RESULTS
 from bike_scraper.database import get_session
-from bike_scraper.scraper_wallapop import create_wallapop_scraper
+from bike_scraper.scraper_wallapop_smart import create_wallapop_smart_scraper
 from bike_scraper.service_listings import ListingService
 from bike_scraper.utils_images import ImageDownloader
 from bike_scraper.utils_logger import get_logger
@@ -84,8 +84,8 @@ class BikeScraperScheduler:
         db = get_session()
 
         try:
-            # Инициализируем скрейпер (используем Playwright для рендеринга JS)
-            scraper = create_wallapop_scraper()
+            # Инициализируем скрейпер (CloakBrowser с улучшенными таймаутами)
+            scraper = create_wallapop_smart_scraper()
 
             # Парсим по каждому поисковому терму
             for search_term in SEARCH_TERMS:

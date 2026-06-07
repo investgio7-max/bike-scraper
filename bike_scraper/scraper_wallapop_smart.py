@@ -155,12 +155,12 @@ class WallapopScraperSmart(BaseScraper):
                 logger.info(f"📄 Loading: {url}")
 
                 try:
-                    # Try with domcontentloaded first (faster), then wait more for JS
-                    response = await page_obj.goto(url, wait_until='domcontentloaded', timeout=30000)
+                    # Try with domcontentloaded (faster than networkidle, sufficient for Wallapop)
+                    response = await page_obj.goto(url, wait_until='domcontentloaded', timeout=60000)
                     logger.info(f"✅ Page loaded (domcontentloaded) - Status: {response.status if response else 'Unknown'}")
 
-                    # Wait extra time for JavaScript to render search results
-                    await page_obj.wait_for_timeout(5000)
+                    # Wait extra time for JavaScript to render search results (8 seconds for React rendering)
+                    await page_obj.wait_for_timeout(8000)
                     logger.info("✅ Extra wait for JS rendering")
 
                     # Check for Cloudflare blocks
@@ -182,9 +182,6 @@ class WallapopScraperSmart(BaseScraper):
                         # Later page failed, stop and return results so far
                         logger.info(f"Stopping after page {page}")
                         break
-
-                await page_obj.wait_for_timeout(3000)  # Wait for JS to load
-                logger.info("✅ Waited for JS")
 
                 html = await page_obj.content()
                 logger.info(f"📊 HTML size: {len(html)} bytes")

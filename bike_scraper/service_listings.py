@@ -83,12 +83,12 @@ class ListingService:
 
         # Парсим велосипед с помощью AI парсера
         try:
-            ai_parser = AIBikeParser()
+            ai_parser = AIBikeParser(use_vision=True)
             bike = ai_parser.parse(
                 title=listing_data.title,
                 description=listing_data.description,
                 images=listing_data.images or [],
-                analyze_images=False  # Отключаем анализ изображений по умолчанию для скорости
+                analyze_images=True  # Включаем Claude Vision для анализа изображений
             )
             bike_dict = bike.to_dict()
 

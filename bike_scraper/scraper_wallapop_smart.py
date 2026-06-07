@@ -87,6 +87,11 @@ class WallapopScraperSmart(BaseScraper):
                 # Log first 1000 chars of HTML
                 logger.debug(f"HTML preview: {html[:1000]}")
 
+                # Save HTML to file for analysis
+                with open(f'/tmp/wallapop_page_{page}.html', 'w') as f:
+                    f.write(html)
+                logger.debug(f"💾 HTML saved to /tmp/wallapop_page_{page}.html")
+
                 soup = BeautifulSoup(html, 'html.parser')
 
                 # Try multiple selectors

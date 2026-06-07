@@ -12,6 +12,7 @@ from bike_scraper.scraper_base import BaseScraper, ListingData
 from bike_scraper.config import WALLAPOP_SEARCH_URL, MIN_PRICE, MAX_PRICE
 from bike_scraper.utils_parser import BikeParser, normalize_price, parse_location
 from bike_scraper.utils_logger import get_logger
+from bike_scraper.anti_ban_manager import AntiBanManager
 
 logger = get_logger('wallapop_smart')
 
@@ -84,6 +85,7 @@ class WallapopScraperSmart(BaseScraper):
         super().__init__('wallapop_smart')
         self.base_url = WALLAPOP_SEARCH_URL
         self.use_cloak = HAS_CLOAK
+        self.anti_ban = AntiBanManager(min_delay=2, max_delay=8)  # 2-8 сек задержки
 
         if not self.use_cloak and HAS_CURL:
             self.session = requests.Session()
@@ -306,10 +308,16 @@ class WallapopScraperSmart(BaseScraper):
                 logger.debug(f"📄 Fetching: {url}")
 
                 try:
-                    # Prepare request kwargs
+                    # Anti-ban: ждем перед запросом
+                    self.anti_ban.wait_before_request()
+
+                    # Prepare request kwargs with rotating User-Agent
                     kwargs = {
                         "impersonate": "chrome120",
-                        "timeout": 30
+                        "timeout": 30,
+                        "headers": {
+                            "User-Agent": self.anti_ban.get_random_user_agent()
+                        }
                     }
 
                     # Add proxy if configured
@@ -319,16 +327,25 @@ class WallapopScraperSmart(BaseScraper):
 
                     response = self.session.get(url, **kwargs)
                     logger.info(f"📡 curl_cffi Status: {response.status_code}, size: {len(response.text)} bytes")
+
+                    # Anti-ban: зафиксировать успех
+                    if response.status_code == 200:
+                        self.anti_ban.on_request_success()
+
                 except Exception as e:
                     logger.error(f"❌ curl_cffi request failed: {e}")
+                    self.anti_ban.on_request_error()
                     break
 
                 if response.status_code == 403:
                     logger.error("❌ 403 Forbidden - Cloudflare is blocking curl_cffi!")
+                    self.anti_ban.on_request_error(403)  # Сигнал о блокировке
                 elif response.status_code == 429:
                     logger.error("❌ 429 Too Many Requests - Rate limited!")
+                    self.anti_ban.on_request_error(429)
                 elif response.status_code >= 500:
                     logger.error(f"❌ {response.status_code} Server error!")
+                    self.anti_ban.on_request_error(response.status_code)
 
                 if response.status_code != 200:
                     logger.warning(f"⚠️ Non-200 status, stopping: {response.status_code}")

@@ -142,7 +142,10 @@ class WallapopScraperSmart(BaseScraper):
         return []
 
     def _filter_by_keywords(self, listings: List[ListingData], search_term, max_results: int) -> List[ListingData]:
-        """Filter listings by keywords from search_term with fuzzy matching"""
+        """Filter listings by keywords from search_term with fuzzy matching
+
+        Requires matching first 2-3 keywords (brand + model) but allows variations on year/specs
+        """
         import difflib
 
         # Extract keywords to search for
@@ -156,19 +159,22 @@ class WallapopScraperSmart(BaseScraper):
             logger.warning("⚠️ No keywords to filter by")
             return listings[:max_results]
 
+        # Require matching only first 2-3 keywords (brand + model), be lenient on rest
+        min_required_matches = min(2, len(keywords))  # At least 2 keywords must match
+
         filtered = []
         for listing in listings:
             title_lower = listing.title.lower()
+            matches = 0
 
-            # Check if ALL keywords match (with fuzzy matching for typos)
-            all_match = True
+            # Check how many keywords match (with fuzzy matching for typos)
             for keyword in keywords:
                 # Try exact match first
                 if keyword in title_lower:
+                    matches += 1
                     continue
 
                 # Try fuzzy match (85% similarity threshold)
-                # Split title into words and check similarity
                 title_words = title_lower.split()
                 fuzzy_match = False
                 for word in title_words:
@@ -177,16 +183,16 @@ class WallapopScraperSmart(BaseScraper):
                         fuzzy_match = True
                         break
 
-                if not fuzzy_match:
-                    all_match = False
-                    break
+                if fuzzy_match:
+                    matches += 1
 
-            if all_match:
+            # Include if at least min_required_matches are found
+            if matches >= min_required_matches:
                 filtered.append(listing)
                 if len(filtered) >= max_results:
                     break
 
-        logger.info(f"🔍 Filtered: {len(listings)} → {len(filtered)} listings (keywords: {' + '.join(keywords)})")
+        logger.info(f"🔍 Filtered: {len(listings)} → {len(filtered)} listings (matched {min_required_matches}/{len(keywords)} keywords)")
         return filtered
 
     async def _search_cloak(self, search_term, max_results: int = 100) -> List[ListingData]:

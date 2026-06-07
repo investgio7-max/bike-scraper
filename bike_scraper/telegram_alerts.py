@@ -15,8 +15,11 @@ try:
     from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
     from telegram.error import TelegramError
 except ImportError:
-    print("⚠️  python-telegram-bot not installed. Install with: pip install python-telegram-bot")
+    # Fallback for testing without python-telegram-bot
     Bot = None
+    InlineKeyboardMarkup = None
+    InlineKeyboardButton = None
+    TelegramError = Exception
 
 logger = logging.getLogger(__name__)
 
@@ -161,10 +164,10 @@ class TelegramAlertService:
 
         return message
 
-    def _build_keyboard(self, alert: DealAlert) -> Optional[InlineKeyboardMarkup]:
+    def _build_keyboard(self, alert: DealAlert):
         """Build inline keyboard with action buttons"""
 
-        if not self.bot:
+        if not self.bot or not InlineKeyboardMarkup:
             return None
 
         keyboard = [

@@ -283,6 +283,49 @@ async def get_price_analysis(
     return analysis
 
 
+@app.get("/deals", tags=["Analytics"])
+async def get_good_deals(
+    min_profit: float = Query(10, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """💰 Получить выгодные сделки (профит >= min_profit%)"""
+    try:
+        deals = ListingService.get_good_deals(db, limit=limit, min_profit_percent=min_profit)
+
+        results = []
+        for listing, analysis in deals:
+            market = analysis.get('market_analysis', {})
+            results.append({
+                'id': str(listing.id),
+                'title': listing.title,
+                'url': listing.url,
+                'price': listing.price,
+                'bike': {
+                    'brand': analysis.get('bike', {}).get('brand'),
+                    'model': analysis.get('bike', {}).get('model'),
+                    'year': analysis.get('bike', {}).get('year'),
+                    'size': analysis.get('bike', {}).get('size')
+                },
+                'market_price': market.get('market_median'),
+                'profit_euros': market.get('profit_euros'),
+                'profit_percent': market.get('profit_percent'),
+                'discount_percent': market.get('discount_percent'),
+                'comparable_count': market.get('comparable_count'),
+                'confidence': market.get('confidence')
+            })
+
+        return {
+            'total_deals': len(results),
+            'min_profit_percent': min_profit,
+            'deals': results
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Ошибка получения выгодных сделок: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # =====================
 # ROUTES - SEARCH
 # =====================

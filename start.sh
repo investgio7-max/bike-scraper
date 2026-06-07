@@ -39,9 +39,9 @@ fi
 
 sleep 2
 
-# Start Scheduler in background with logging
+# Start Scheduler in background with logging to both file and console
 echo "⏰ Starting Scheduler in background..."
-/usr/local/bin/python3 << 'SCHEDEOF' > /tmp/scheduler.log 2>&1 &
+/usr/local/bin/python3 << 'SCHEDEOF' 2>&1 | tee /tmp/scheduler.log &
 import sys
 from bike_scraper.scheduler import BikeScraperScheduler
 

@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application
 COPY bike_scraper/ ./bike_scraper/
+COPY run_bot.py .
 
 # Set environment
 ENV PYTHONUNBUFFERED=1
@@ -28,5 +29,5 @@ ENV PORT=8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:${PORT}/health || exit 1
 
-# Run application
-CMD ["python", "-m", "bike_scraper.telegram_alerts"]
+# Run Telegram bot
+CMD ["python", "run_bot.py"]

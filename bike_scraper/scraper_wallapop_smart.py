@@ -45,15 +45,14 @@ ALLOWED_CATEGORIES = [
     "велосипед"
 ]
 
-# Get proxy from environment variable
-# Note: CloakBrowser has built-in anti-bot patches (58 C++ patches),
-# so we try without proxy first. Only use proxy if explicitly configured.
-PROXY_URL = os.getenv('PROXY_URL', None)
+# Get proxy from environment variable or use working default
+PROXY_URL = os.getenv('PROXY_URL', 'http://c4q4gcymn334yzSF:c4q4gcymn334yzSF@185.90.61.65:10059')
 
-if PROXY_URL:
-    logger.info(f"🔗 Using proxy from env: {PROXY_URL[:50]}...")
+if PROXY_URL and PROXY_URL.startswith('http'):
+    logger.info(f"🔗 Using proxy: {PROXY_URL[:50]}...")
 else:
-    logger.info(f"🔗 CloakBrowser will use built-in anti-bot patches (no proxy needed)")
+    PROXY_URL = None
+    logger.info(f"🔗 No proxy configured")
 
 
 
@@ -132,7 +131,7 @@ class WallapopScraperSmart(BaseScraper):
             # Add proxy if configured
             if PROXY_URL:
                 launch_opts["proxy"] = PROXY_URL
-                logger.info(f"🔗 CloakBrowser will use proxy")
+                logger.info(f"🔗 CloakBrowser will use proxy: {PROXY_URL[:50]}...")
 
             browser = await launch_async(**launch_opts)
             logger.info("✅ CloakBrowser launched")

@@ -6,6 +6,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 import re
 import asyncio
+import os
 
 from bike_scraper.scraper_base import BaseScraper, ListingData
 from bike_scraper.config import WALLAPOP_SEARCH_URL, MIN_PRICE, MAX_PRICE
@@ -13,6 +14,13 @@ from bike_scraper.utils_parser import BikeParser, normalize_price, parse_locatio
 from bike_scraper.utils_logger import get_logger
 
 logger = get_logger('wallapop_smart')
+
+# Get proxy from environment variable
+PROXY_URL = os.getenv('PROXY_URL', None)
+if PROXY_URL:
+    logger.info(f"🔗 Using proxy: {PROXY_URL[:50]}...")
+else:
+    logger.info("📡 No proxy configured, using direct connection")
 
 # Try to import CloakBrowser
 try:
@@ -72,7 +80,18 @@ class WallapopScraperSmart(BaseScraper):
 
         try:
             logger.info("🎭 Launching CloakBrowser...")
-            browser = await launch_async(headless=True)
+
+            # Prepare launch options
+            launch_opts = {
+                "headless": True
+            }
+
+            # Add proxy if configured
+            if PROXY_URL:
+                launch_opts["proxy"] = PROXY_URL
+                logger.info(f"🔗 CloakBrowser will use proxy")
+
+            browser = await launch_async(**launch_opts)
             logger.info("✅ CloakBrowser launched")
             page_obj = await browser.new_page()
             logger.info("✅ Page created")
@@ -215,13 +234,23 @@ class WallapopScraperSmart(BaseScraper):
                 url = f"{self.base_url}?keywords={search_term.replace(' ', '+')}&start={page * 50}"
                 logger.debug(f"📄 Fetching: {url}")
 
-                response = self.session.get(
-                    url,
-                    impersonate="chrome120",
-                    timeout=30
-                )
+                try:
+                    # Prepare request kwargs
+                    kwargs = {
+                        "impersonate": "chrome120",
+                        "timeout": 30
+                    }
 
-                logger.info(f"📡 curl_cffi Status: {response.status_code}, size: {len(response.text)} bytes")
+                    # Add proxy if configured
+                    if PROXY_URL:
+                        kwargs["proxy"] = PROXY_URL
+                        logger.debug(f"🔗 Using proxy for request")
+
+                    response = self.session.get(url, **kwargs)
+                    logger.info(f"📡 curl_cffi Status: {response.status_code}, size: {len(response.text)} bytes")
+                except Exception as e:
+                    logger.error(f"❌ curl_cffi request failed: {e}")
+                    break
 
                 if response.status_code == 403:
                     logger.error("❌ 403 Forbidden - Cloudflare is blocking curl_cffi!")

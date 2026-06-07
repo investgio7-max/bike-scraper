@@ -75,8 +75,18 @@ class WallapopScraperSmart(BaseScraper):
                 url = f"{self.base_url}?keywords={search_term.replace(' ', '+')}&start={page * 50}"
                 logger.info(f"📄 Loading: {url}")
 
-                await page_obj.goto(url, wait_until='networkidle', timeout=30000)
-                logger.info("✅ Page loaded")
+                try:
+                    await page_obj.goto(url, wait_until='networkidle', timeout=30000)
+                    logger.info("✅ Page loaded")
+                except Exception as e:
+                    logger.error(f"❌ Failed to load page: {e}")
+                    if page == 0:
+                        # First page failed, return what we have
+                        break
+                    else:
+                        # Later page failed, stop and return results so far
+                        logger.info(f"Stopping after page {page}")
+                        break
 
                 await page_obj.wait_for_timeout(3000)  # Wait for JS to load
                 logger.info("✅ Waited for JS")

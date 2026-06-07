@@ -159,18 +159,24 @@ class WallapopScraperSmart(BaseScraper):
             logger.warning("⚠️ No keywords to filter by")
             return listings[:max_results]
 
-        # Smart filtering: require ALL keywords to be present in title
+        # Smart filtering: require first 2 keywords (brand + model name) to be present
+        # This is the core match - variants like CFR/CF/SLX are just options
         filtered = []
+        min_keywords = min(2, len(keywords))  # Require at least 2 keywords
+
         for listing in listings:
             title_lower = listing.title.lower()
 
-            # Check if ALL keywords are in title (simple substring match)
-            if all(keyword in title_lower for keyword in keywords):
+            # Count how many keywords match
+            matches = sum(1 for keyword in keywords if keyword in title_lower)
+
+            # Include if at least min_keywords match
+            if matches >= min_keywords:
                 filtered.append(listing)
                 if len(filtered) >= max_results:
                     break
 
-        logger.info(f"🔍 Filtered: {len(listings)} → {len(filtered)} listings (all keywords: {' + '.join(keywords)})")
+        logger.info(f"🔍 Filtered: {len(listings)} → {len(filtered)} listings (need {min_keywords}/{len(keywords)})")
         return filtered
 
     async def _search_cloak(self, search_term, max_results: int = 100) -> List[ListingData]:

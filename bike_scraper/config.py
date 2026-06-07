@@ -73,14 +73,21 @@ API_WORKERS = int(os.getenv('API_WORKERS', 4))
 WALLAPOP_BASE_URL = 'https://es.wallapop.com'
 WALLAPOP_SEARCH_URL = f'{WALLAPOP_BASE_URL}/search'
 
-# Поисковые термины для велосипедов
+# Поисковые термины по ОФИЦИАЛЬНЫМ КАТЕГОРИЯМ Wallapop
+# Используем category_id вместо текстового поиска для точности
+# category_id=17000 = Bicicletas y triciclos
 SEARCH_TERMS = [
-    'bicicleta carretera',
-    'bicicleta gravel',
-    'road bike',
-    'gravel bike',
-    'bicicleta ciclismo',
-    'carretera bici',
+    # Road bikes by brand (category 17000, subcategory 10438)
+    {'keywords': 'Canyon', 'category_id': 17000, 'subcategory_id': 10438},
+    {'keywords': 'Specialized', 'category_id': 17000, 'subcategory_id': 10438},
+    {'keywords': 'Trek', 'category_id': 17000, 'subcategory_id': 10438},
+    {'keywords': 'Scott', 'category_id': 17000, 'subcategory_id': 10438},
+    {'keywords': 'Cervelo', 'category_id': 17000, 'subcategory_id': 10438},
+    {'keywords': 'Pinarello', 'category_id': 17000, 'subcategory_id': 10438},
+    # Gravel bikes
+    {'keywords': 'bicicleta gravel', 'category_id': 17000, 'subcategory_id': 10438},
+    # Generic road/carretera search
+    {'keywords': 'bicicleta carretera', 'category_id': 17000, 'subcategory_id': 10438},
 ]
 
 # Фильтры

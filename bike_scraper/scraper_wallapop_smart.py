@@ -109,8 +109,13 @@ class WallapopScraperSmart(BaseScraper):
                 'Accept-Language': 'es-ES,es;q=0.9,en;q=0.8',
             })
 
-    def search(self, search_term: str, max_results: int = 100) -> List[ListingData]:
-        """Search - CloakBrowser primary (executes JS), curl_cffi fallback"""
+    def search(self, search_term, max_results: int = 100) -> List[ListingData]:
+        """Search - CloakBrowser primary (executes JS), curl_cffi fallback
+
+        search_term can be:
+        - str: "bicicleta carretera" (keyword search)
+        - dict: {'keywords': 'Canyon', 'category_id': 17000} (category search)
+        """
         # Use CloakBrowser first (renders JavaScript)
         if self.use_cloak:
             logger.info("🎭 Using CloakBrowser for search (primary - executes JS)")
@@ -127,8 +132,11 @@ class WallapopScraperSmart(BaseScraper):
         logger.error("❌ No scraping tool available!")
         return []
 
-    async def _search_cloak(self, search_term: str, max_results: int = 100) -> List[ListingData]:
-        """Search using CloakBrowser"""
+    async def _search_cloak(self, search_term, max_results: int = 100) -> List[ListingData]:
+        """Search using CloakBrowser
+
+        search_term can be str or dict with category_id
+        """
         all_listings = []
         page = 0
 
@@ -151,8 +159,19 @@ class WallapopScraperSmart(BaseScraper):
             logger.info("✅ Page created")
 
             while len(all_listings) < max_results:
-                url = f"{self.base_url}?keywords={search_term.replace(' ', '+')}&start={page * 50}"
-                logger.info(f"📄 Loading: {url}")
+                # Build URL - support both keyword search and category search
+                if isinstance(search_term, dict):
+                    # Category-based search
+                    keywords = search_term.get('keywords', '').replace(' ', '+')
+                    category_id = search_term.get('category_id', 17000)
+                    subcategory_id = search_term.get('subcategory_id', 10438)
+                    url = f"{self.base_url}?keywords={keywords}&category_id={category_id}&subcategory_ids={subcategory_id}&start={page * 50}"
+                    search_display = f"{search_term['keywords']} (cat: {category_id})"
+                else:
+                    # Simple keyword search
+                    url = f"{self.base_url}?keywords={search_term.replace(' ', '+')}&start={page * 50}"
+                    search_display = search_term
+                logger.info(f"📄 Loading: {search_display} (page {page + 1})")
 
                 try:
                     # Try with domcontentloaded (faster than networkidle, sufficient for Wallapop)
@@ -275,14 +294,21 @@ class WallapopScraperSmart(BaseScraper):
         logger.info(f"✅ Found {len(all_listings)} listings (CloakBrowser)")
         return all_listings
 
-    def _search_curl(self, search_term: str, max_results: int = 100) -> List[ListingData]:
-        """Search using curl_cffi"""
+    def _search_curl(self, search_term, max_results: int = 100) -> List[ListingData]:
+        """Search using curl_cffi - supports str or dict with category_id"""
         all_listings = []
         page = 0
 
         while len(all_listings) < max_results:
             try:
-                url = f"{self.base_url}?keywords={search_term.replace(' ', '+')}&start={page * 50}"
+                # Build URL - support both keyword search and category search
+                if isinstance(search_term, dict):
+                    keywords = search_term.get('keywords', '').replace(' ', '+')
+                    category_id = search_term.get('category_id', 17000)
+                    subcategory_id = search_term.get('subcategory_id', 10438)
+                    url = f"{self.base_url}?keywords={keywords}&category_id={category_id}&subcategory_ids={subcategory_id}&start={page * 50}"
+                else:
+                    url = f"{self.base_url}?keywords={search_term.replace(' ', '+')}&start={page * 50}"
                 logger.debug(f"📄 Fetching: {url}")
 
                 try:

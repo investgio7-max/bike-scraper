@@ -114,16 +114,18 @@ class WallapopScraperSmart(BaseScraper):
                     logger.warning("⚠️ No listings found, stopping search")
                     break
 
+                logger.debug(f"🔎 Parsing {len(listings)} elements...")
+                parsed_count = 0
                 for i, elem in enumerate(listings):
                     if len(all_listings) >= max_results:
+                        logger.info(f"✓ Reached max_results ({max_results})")
                         break
-                    logger.debug(f"🔎 Parsing element {i+1}")
                     listing = self.parse_listing(elem)
                     if listing:
-                        logger.info(f"✅ Parsed: {listing.title[:50]}... (€{listing.price})")
+                        parsed_count += 1
                         all_listings.append(listing)
-                    else:
-                        logger.debug(f"⚠️ Element {i+1} returned None")
+
+                logger.info(f"📊 Parsed {parsed_count}/{len(listings)} elements on page {page + 1}")
 
                 page += 1
 
@@ -196,18 +198,22 @@ class WallapopScraperSmart(BaseScraper):
         try:
             # Skip non-item elements (badges, images, etc)
             classes = elem.get('class', [])
-            if not classes or 'item-card_ItemCard--vertical' not in str(classes):
+            class_str = ' '.join(classes) if isinstance(classes, list) else str(classes)
+
+            if 'item-card_ItemCard--vertical' not in class_str:
                 return None
 
             # Get full text from article element
             text = elem.get_text(strip=True)
             if not text or '€' not in text:
+                logger.debug(f"⚠️ Element missing text or €: {text[:50] if text else 'empty'}")
                 return None
 
             # Parse format: "1 / 3350 €Bicicleta Trek FX3 Gen 3"
             # Split on € to get price and title
             parts = text.split('€', 1)
             if len(parts) < 2:
+                logger.debug(f"⚠️ Could not split on €: {text[:100]}")
                 return None
 
             # Extract price from first part (last number before €)
@@ -216,6 +222,7 @@ class WallapopScraperSmart(BaseScraper):
             import re as regex
             price_match = regex.search(r'(\d+(?:[.,]\d+)?)\s*$', price_part)
             if not price_match:
+                logger.debug(f"⚠️ No price found in: {price_part[:100]}")
                 return None
 
             price_text = price_match.group(1)
@@ -224,9 +231,10 @@ class WallapopScraperSmart(BaseScraper):
             # Get title from second part
             title = parts[1].strip()
             if not title or title == "":
+                logger.debug(f"⚠️ Empty title after €")
                 return None
 
-            logger.debug(f"📄 Parsed: {title[:50]}... Price: {price_text} (€{price})")
+            logger.info(f"✅ Parsed: {title[:50]}... (€{price})")
 
             # Filter by price
             if price and (price < MIN_PRICE or price > MAX_PRICE):

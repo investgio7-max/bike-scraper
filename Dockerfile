@@ -1,37 +1,32 @@
-FROM python:3.11
+# Dockerfile for Railway Deployment
+
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for CloakBrowser
-# Includes: runtime libraries + fonts (essential for anti-bot evasion)
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    libnspr4 \
-    libnss3 \
-    libdbus-1-3 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libatspi2.0-0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libxkbcommon0 \
-    libasound2 \
-    fonts-noto-color-emoji \
-    fonts-freefont-ttf \
-    fonts-unifont \
-    fonts-ipafont-gothic \
-    fonts-wqy-zenhei \
+    curl \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-COPY . .
+# Copy requirements
+COPY requirements.txt .
 
-RUN pip install -r requirements.txt
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-RUN chmod +x start.sh
+# Copy application
+COPY bike_scraper/ ./bike_scraper/
 
-EXPOSE 8000
-CMD ["bash", "start.sh"]
+# Set environment
+ENV PYTHONUNBUFFERED=1
+ENV LOG_LEVEL=INFO
+ENV PORT=8000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/health || exit 1
+
+# Run application
+CMD ["python", "-m", "bike_scraper.telegram_alerts"]

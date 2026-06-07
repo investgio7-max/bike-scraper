@@ -1,0 +1,43 @@
+# Railway Configuration for Wallapop Bike Scraper
+
+[build]
+builder = "dockerfile"
+dockerfile = "Dockerfile"
+
+[deploy]
+startCommand = "python -m bike_scraper.telegram_alerts"
+restartPolicyType = "always"
+restartPolicyMaxRetries = 5
+
+[[services]]
+name = "wallapop-scraper"
+runtime = "python"
+
+[services.variables]
+# Environment variables
+TELEGRAM_BOT_TOKEN = ""  # Set via Railway dashboard
+TELEGRAM_CHAT_ID = ""    # Set via Railway dashboard
+LOG_LEVEL = "INFO"
+ENVIRONMENT = "production"
+
+[services.healthchecks]
+# Health check configuration
+path = "/health"
+port = 8000
+interval = 30
+timeout = 5
+maxRetries = 3
+
+[services.ports]
+http = 8000
+
+[services.resources]
+# Resource allocation
+cpus = 0.5
+memory = 512
+
+[services.postgres]
+# Optional: PostgreSQL for persistent storage
+enabled = false
+# name = "bike-scraper-db"
+# version = "14"

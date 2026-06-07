@@ -172,7 +172,8 @@ class WallapopScraperSmart(BaseScraper):
         search_term can be str or dict with category_id
         """
         all_listings = []
-        seen_ids = set()  # Track seen listing IDs to avoid duplicates
+        seen_ids = set()  # Track seen listing IDs
+        seen_fingerprints = set()  # Track by title+price+seller for duplicates on same page
         page = 0
         max_pages = 5  # Limit to 5 pages (250 listings) to avoid infinite scraping
 
@@ -308,13 +309,17 @@ class WallapopScraperSmart(BaseScraper):
                         break
                     listing = self.parse_listing(elem)
                     if listing:
-                        # Skip duplicate listings (same ID)
-                        if listing.listing_id not in seen_ids:
+                        # Create fingerprint for duplicate detection (title + price + seller)
+                        fingerprint = f"{listing.title.lower()[:50]}|{listing.price}|{listing.seller_name or 'unknown'}"
+
+                        # Skip duplicate listings (same ID OR same fingerprint)
+                        if listing.listing_id not in seen_ids and fingerprint not in seen_fingerprints:
                             parsed_count += 1
                             seen_ids.add(listing.listing_id)
+                            seen_fingerprints.add(fingerprint)
                             all_listings.append(listing)
                         else:
-                            logger.debug(f"Duplicate: {listing.listing_id}")
+                            logger.debug(f"Duplicate: {listing.listing_id} or {fingerprint[:40]}")
 
                 logger.info(f"📊 Parsed {parsed_count}/{len(listings)} elements on page {page + 1}")
 
@@ -349,7 +354,8 @@ class WallapopScraperSmart(BaseScraper):
         """Search using curl_cffi - supports str or dict with category_id"""
         global PROXY_URL  # Allow proxy rotation
         all_listings = []
-        seen_ids = set()  # Track seen listing IDs to avoid duplicates
+        seen_ids = set()  # Track seen listing IDs
+        seen_fingerprints = set()  # Track by title+price+seller for duplicates
         page = 0
         max_pages = 5  # Limit to 5 pages (250 listings) to avoid infinite scraping
 
@@ -438,13 +444,17 @@ class WallapopScraperSmart(BaseScraper):
                     logger.debug(f"🔎 curl parsing element {i+1}")
                     listing = self.parse_listing(elem)
                     if listing:
-                        # Skip duplicate listings (same ID)
-                        if listing.listing_id not in seen_ids:
+                        # Create fingerprint for duplicate detection (title + price + seller)
+                        fingerprint = f"{listing.title.lower()[:50]}|{listing.price}|{listing.seller_name or 'unknown'}"
+
+                        # Skip duplicate listings (same ID OR same fingerprint)
+                        if listing.listing_id not in seen_ids and fingerprint not in seen_fingerprints:
                             logger.info(f"✅ curl parsed: {listing.title[:50]}... (€{listing.price})")
                             seen_ids.add(listing.listing_id)
+                            seen_fingerprints.add(fingerprint)
                             all_listings.append(listing)
                         else:
-                            logger.debug(f"Duplicate: {listing.listing_id}")
+                            logger.debug(f"Duplicate: {listing.listing_id} or {fingerprint[:40]}")
 
                 page += 1
 

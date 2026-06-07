@@ -94,25 +94,10 @@ class WallapopScraperSmart(BaseScraper):
 
                 soup = BeautifulSoup(html, 'html.parser')
 
-                # Find item card listings
-                # Real listings have: class containing 'item-card_ItemCard--vertical'
-                # Get ALL articles and filter
-                all_articles = soup.find_all('article')
-                listings = []
-                for idx, article in enumerate(all_articles):
-                    classes = article.get('class', [])
-                    if isinstance(classes, list):
-                        class_str = ' '.join(classes)
-                    else:
-                        class_str = str(classes)
-
-                    logger.info(f"  Article {idx}: {class_str[:100]}")
-
-                    # Only keep articles with the item-card--vertical pattern
-                    if 'item-card_ItemCard--vertical' in class_str:
-                        listings.append(article)
-
-                logger.info(f"🔍 Found {len(listings)} real item cards (filtered from {len(all_articles)} articles)")
+                # Find item card listings using CSS selector
+                # This finds articles that have the exact class pattern: item-card_ItemCard--vertical
+                listings = soup.select('article[class*="item-card_ItemCard--vertical"]')
+                logger.info(f"🔍 Found {len(listings)} real item cards with CSS selector")
 
                 if not listings:
                     listings = soup.find_all('a', attrs={'data-testid': lambda x: x and 'item' in x.lower()})

@@ -90,7 +90,7 @@ class WallapopScraperCurl(BaseScraper):
                         break
 
                     try:
-                        listing = self._parse_listing(listing_elem)
+                        listing = self.parse_listing(listing_elem)
                         if listing:
                             all_listings.append(listing)
                     except Exception as e:

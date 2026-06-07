@@ -199,7 +199,10 @@ class WallapopScraperSmart(BaseScraper):
             if not url.startswith('http'):
                 url = f"https://www.wallapop.com{url}"
 
+            logger.debug(f"📄 Parsed: {title[:50]}... Price: {price_text} (€{price})")
+
             if price and (price < MIN_PRICE or price > MAX_PRICE):
+                logger.info(f"💸 Filtered by price: {title[:40]}... (€{price}, range: €{MIN_PRICE}-€{MAX_PRICE})")
                 return None
 
             return ListingData(

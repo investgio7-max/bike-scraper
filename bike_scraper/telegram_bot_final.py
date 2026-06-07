@@ -39,7 +39,8 @@ def get_monitoring_menu():
     """Monitoring menu"""
     return ReplyKeyboardMarkup([
         [KeyboardButton("➕ Добавить"), KeyboardButton("📋 Мои поиски")],
-        [KeyboardButton("➖ Удалить"), KeyboardButton("⬅️ Назад")],
+        [KeyboardButton("🔔 Вкл/Выкл"), KeyboardButton("➖ Удалить")],
+        [KeyboardButton("⬅️ Назад")],
     ], resize_keyboard=True)
 
 
@@ -230,17 +231,27 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         elif text == "📋 Мои поиски":
             await update.message.reply_text(
                 "📋 Ваши активные поиски:\n\n"
-                "1. Canyon Aeroad CF SLX\n"
-                "2. Trek FX 3\n"
-                "3. Giant Escape 3",
+                "1. Canyon Aeroad CF SLX (🔔 ВКЛ)\n"
+                "2. Trek FX 3 (🔔 ВКЛ)\n"
+                "3. Giant Escape 3 (🔕 ВЫКЛ)\n\n"
+                "Используйте 'Вкл/Выкл' для переключения",
                 reply_markup=get_monitoring_menu()
             )
 
+        elif text == "🔔 Вкл/Выкл":
+            await update.message.reply_text(
+                "🔔 Введите название велосипеда для включения/выключения:\n\n"
+                "Пример: Canyon Aeroad CF SLX",
+                reply_markup=get_back_menu()
+            )
+            user_states[user_id] = "monitoring_toggle"
+
         elif text == "➖ Удалить":
             await update.message.reply_text(
-                "➖ Введите номер поиска:",
-                reply_markup=get_monitoring_menu()
+                "➖ Введите название велосипеда для удаления:",
+                reply_markup=get_back_menu()
             )
+            user_states[user_id] = "monitoring_delete"
 
         elif text == "⬅️ Назад":
             user_states[user_id] = "main"
@@ -248,6 +259,39 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 "👈 Вернулись в главное меню",
                 reply_markup=get_main_menu()
             )
+
+    # Toggle monitoring
+    elif state == "monitoring_toggle":
+        if text == "⬅️ Назад":
+            user_states[user_id] = "monitoring"
+            await update.message.reply_text(
+                "💰 Управление мониторингом:",
+                reply_markup=get_monitoring_menu()
+            )
+        else:
+            # Toggle the monitoring for this bike
+            await update.message.reply_text(
+                f"🔔 '{text}' - статус переключен\n\n"
+                f"(Мониторинг ВКЛ/ВЫКЛ для этого велосипеда)",
+                reply_markup=get_monitoring_menu()
+            )
+            user_states[user_id] = "monitoring"
+
+    # Delete monitoring
+    elif state == "monitoring_delete":
+        if text == "⬅️ Назад":
+            user_states[user_id] = "monitoring"
+            await update.message.reply_text(
+                "💰 Управление мониторингом:",
+                reply_markup=get_monitoring_menu()
+            )
+        else:
+            # Delete the monitoring
+            await update.message.reply_text(
+                f"🗑️ '{text}' удален из мониторинга",
+                reply_markup=get_monitoring_menu()
+            )
+            user_states[user_id] = "monitoring"
 
     # Stats and Help - just show back button
     elif state in ["stats", "help"]:

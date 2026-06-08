@@ -577,6 +577,12 @@ async def health_check():
         raise HTTPException(status_code=503, detail="Database connection failed")
 
 
+@app.get("/ping", tags=["System"])
+async def ping():
+    """Simple ping endpoint - no dependencies"""
+    return {"status": "ok"}
+
+
 @app.get("/", tags=["System"])
 async def root():
     """Информация об API"""
@@ -584,7 +590,8 @@ async def root():
         "name": "Bike Scraper API",
         "version": "1.0.0",
         "docs": "/docs",
-        "health": "/health"
+        "health": "/health",
+        "ping": "/ping"
     }
 
 

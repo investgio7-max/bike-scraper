@@ -38,6 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxss1 \
     libxkbcommon0 \
     libxkbcommon-x11-0 \
+    libcairo2 \
     fonts-liberation \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*

@@ -16,6 +16,13 @@ from collections import defaultdict
 import schedule
 import time
 
+# Real Wallapop scraper
+from bike_scraper.scraper_wallapop import WallapopScraper
+from bike_scraper.ai_bike_parser import AIBikeParser
+from bike_scraper.price_analyzer import PriceAnalyzer
+from bike_scraper.database import get_db
+from hybrid_priority_config import should_send_alert as check_hybrid_alert
+
 # Setup comprehensive logging
 log_dir = "/tmp/production_logs"
 os.makedirs(log_dir, exist_ok=True)
@@ -65,6 +72,14 @@ class ProductionScheduler:
 
         self.daily_reports = []
 
+        # REAL WALLAPOP DATA - Safe test mode
+        self.scraper = WallapopScraper(use_proxy=True)
+        self.parser = AIBikeParser()
+        self.db_session = next(get_db())
+        self.analyzer = PriceAnalyzer(self.db_session)
+        self.queries = ["bicicleta carretera"]  # Safe test: single query only
+        self.query_index = 0
+
     def check_safe_mode(self) -> bool:
         """Check if safe mode should be activated"""
 
@@ -98,47 +113,88 @@ class ProductionScheduler:
         try:
             logger.info("🔍 Starting search cycle...")
 
-            # Simulate search
-            listings = [
-                {
-                    "id": f"listing_{int(time.time())}_{i}",
-                    "title": f"High-quality bike model {i}",
-                    "price": 2000 + (i * 100),
-                    "url": f"https://es.wallapop.com/item/{int(time.time())}_{i}",
-                } for i in range(15)
-            ]
+            # REAL WALLAPOP DATA - Safe test mode with single query
+            query = self.queries[self.query_index % len(self.queries)]
+            self.query_index += 1
+
+            logger.info(f"🔍 Real search: '{query}' on Wallapop (max 20 listings)")
+
+            listings = await self.scraper.search_async(
+                search_term=query,
+                max_results=20  # Safe test: limit to 20
+            )
 
             self.stats["total_listings"] += len(listings)
-            logger.info(f"✅ Found {len(listings)} listings")
+            logger.info(f"✅ Found {len(listings)} real Wallapop listings")
 
-            # Simulate processing
+            # REAL DATA PROCESSING
             for listing in listings:
                 try:
-                    # Parse
-                    parsed = {"model": "Test Bike", "confidence": 92}
+                    # Parse bike with AI
+                    bike_data = self.parser.parse(
+                        title=listing.title,
+                        description=listing.description or "",
+                        images=listing.images or [],
+                        analyze_images=False
+                    )
+
+                    if not bike_data:
+                        self.stats["total_rejected"] += 1
+                        self.stats["reject_reasons"]["parse_failed"] += 1
+                        continue
+
                     self.stats["total_parsed"] += 1
 
-                    # Analyze
+                    # Analyze market
+                    analysis = self.analyzer.analyze_listing(listing)
+
+                    if not analysis:
+                        self.stats["total_rejected"] += 1
+                        self.stats["reject_reasons"]["analysis_failed"] += 1
+                        continue
+
+                    # Get real market data
+                    market = analysis.get('market_analysis', {})
+                    confidence = bike_data.get('confidence', 0)
+                    discount = market.get('profit_percent', 0)
+                    comparables = market.get('comparable_count', 0)
+                    model = bike_data.get('model', '').lower()
+
+                    # Apply HYBRID PRIORITY MODE
+                    should_send, reason, tier = check_hybrid_alert(
+                        model=model,
+                        confidence=confidence,
+                        comparables=comparables,
+                        discount=discount
+                    )
+
+                    if not should_send:
+                        self.stats["total_rejected"] += 1
+                        self.stats["reject_reasons"][reason] += 1
+                        continue
+
+                    # Deal found!
+                    self.stats["total_deals"] += 1
+                    self.stats["total_alerts"] += 1
+
                     deal = {
-                        "bike_name": parsed["model"],
-                        "price": listing["price"],
-                        "discount": 25,
-                        "confidence": parsed["confidence"],
-                        "url": listing["url"],
+                        "bike_name": f"{bike_data.get('brand', 'Unknown')} {bike_data.get('model', 'Unknown')}",
+                        "listing_id": listing.listing_id,
+                        "price": listing.price,
+                        "market_price": market.get('market_median', 0),
+                        "discount_percent": discount,
+                        "confidence": confidence,
+                        "comparables": comparables,
+                        "tier": tier,
+                        "url": listing.url,
                         "timestamp": datetime.now().isoformat(),
                     }
 
-                    # Filter
-                    if parsed["confidence"] >= 90 and deal["discount"] >= 20:
-                        self.stats["total_deals"] += 1
-                        self.stats["total_alerts"] += 1
-                        self.stats["sent_alerts"].append(deal)
+                    self.stats["sent_alerts"].append(deal)
 
-                        logger.info(f"📤 Alert sent: {deal['bike_name']} (€{deal['price']}, {deal['discount']}% off)")
-                        self.circuit_breaker["telegram_errors"] = 0  # Reset on success
-                    else:
-                        self.stats["total_rejected"] += 1
-                        self.stats["reject_reasons"]["filters"] += 1
+                    tier_badge = "🔥 TIER 1" if tier == "tier_1" else "TIER 2"
+                    logger.info(f"📤 Alert sent: {deal['bike_name']} - €{listing.price} ({discount:.1f}% off) [{tier_badge}]")
+                    self.circuit_breaker["telegram_errors"] = 0
 
                 except Exception as e:
                     logger.error(f"❌ Error processing listing: {e}")

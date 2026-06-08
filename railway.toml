@@ -5,8 +5,7 @@ builder = "dockerfile"
 dockerfile = "Dockerfile"
 
 [deploy]
-# startCommand removed - using only Dockerfile CMD
-# startCommand = "python minimal_app.py"
+startCommand = "python minimal_app.py"
 restartPolicyType = "always"
 restartPolicyMaxRetries = 5
 

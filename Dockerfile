@@ -35,4 +35,5 @@ EXPOSE 8000
 #     CMD curl -f http://localhost:${PORT}/health || exit 1
 
 # Run FastAPI with Telegram bot
-CMD ["python3", "-u", "run_api.py"]
+# CMD removed - using railway.toml startCommand only
+# CMD ["python3", "-u", "run_api.py"]

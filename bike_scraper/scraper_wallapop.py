@@ -304,11 +304,11 @@ class WallapopScraper(BaseScraper):
                 # === DIAGNOSTICS: Page load attempt ===
                 start_goto_time = time.time()
                 logger.info(f"📡 GOTO_ATTEMPT: {url}")
-                logger.info(f"📡 GOTO_TIMEOUT=30000ms | WAIT_UNTIL=networkidle")
+                logger.info(f"📡 GOTO_TIMEOUT=30000ms | WAIT_UNTIL=domcontentloaded")
                 logger.info(f"📡 REQUESTS_CAPTURED_BEFORE_GOTO={len(requests_log)}")
 
                 try:
-                    await self.page.goto(url, wait_until='networkidle', timeout=30000)
+                    await self.page.goto(url, wait_until='domcontentloaded', timeout=30000)
                     logger.info(f"✅ GOTO_SUCCESS")
                 except TimeoutError as e:
                     logger.error(f"❌ GOTO_TIMEOUT: {str(e)[:200]}")

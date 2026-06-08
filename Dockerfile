@@ -21,11 +21,14 @@ COPY bike_scraper/ ./bike_scraper/
 COPY run_api.py .
 COPY run_bot.py .
 COPY minimal_app.py .
+COPY production_scheduler.py .
+COPY production_wrapper.py .
 
 # Set environment
 ENV PYTHONUNBUFFERED=1
 ENV LOG_LEVEL=INFO
 ENV PORT=8080
+ENV PRODUCTION_MODE=true
 
 # Expose port for Railway
 EXPOSE 8080
@@ -34,5 +37,5 @@ EXPOSE 8080
 # HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 #     CMD curl -f http://localhost:${PORT}/health || exit 1
 
-# Run FastAPI + Telegram bot on dynamic PORT
-CMD ["python", "run_api.py"]
+# Run in production mode (24/7 scheduler + API)
+CMD ["python", "production_wrapper.py"]

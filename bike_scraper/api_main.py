@@ -600,23 +600,25 @@ async def get_env():
 
 @app.get("/debug-localhost", tags=["System"])
 async def debug_localhost():
-    """Test if localhost:8000 is reachable from inside container"""
+    """Test if localhost:{PORT} is reachable from inside container"""
     import subprocess
     try:
         result = subprocess.run(
-            ["curl", "-s", "-w", "\n%{http_code}", "http://localhost:8000/ping"],
+            ["curl", "-s", "-w", "\n%{http_code}", f"http://localhost:{API_PORT}/ping"],
             capture_output=True,
             text=True,
             timeout=5
         )
         return {
-            "localhost_8000_reachable": True,
+            "localhost_reachable": True,
+            "port": API_PORT,
             "response_body": result.stdout,
             "return_code": result.returncode
         }
     except Exception as e:
         return {
-            "localhost_8000_reachable": False,
+            "localhost_reachable": False,
+            "port": API_PORT,
             "error": str(e)
         }
 

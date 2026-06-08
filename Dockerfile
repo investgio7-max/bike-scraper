@@ -25,10 +25,10 @@ COPY minimal_app.py .
 # Set environment
 ENV PYTHONUNBUFFERED=1
 ENV LOG_LEVEL=INFO
-ENV PORT=8000
+ENV PORT=8080
 
 # Expose port for Railway
-EXPOSE 8000
+EXPOSE 8080
 
 # Health check (disabled - Railway handles health checks via API endpoints)
 # HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

@@ -18,18 +18,17 @@ TELEGRAM_BOT_TOKEN = ""  # Set via Railway dashboard
 TELEGRAM_CHAT_ID = ""    # Set via Railway dashboard
 LOG_LEVEL = "INFO"
 ENVIRONMENT = "production"
-PORT = "8000"
 
 [services.healthchecks]
 # Health check configuration
 path = "/health"
-port = 8000
+port = 8080
 interval = 30
 timeout = 5
 maxRetries = 3
 
 [services.ports]
-http = 8000
+http = 8080
 
 [services.resources]
 # Resource allocation

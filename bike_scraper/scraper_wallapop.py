@@ -182,6 +182,51 @@ class WallapopScraper(BaseScraper):
 
                 await self.page.goto(url, wait_until='networkidle', timeout=30000)
 
+                # === PAGE AUDIT AFTER goto() ===
+                read_state = await self.page.evaluate('document.readyState')
+                logger.info(f"DOC_READY_STATE={read_state}")
+                logger.info(f"NETWORK_AUDIT_T0_REQUESTS={len(requests_log)}")
+                logger.info(f"NETWORK_AUDIT_T0_JSON={len(json_responses)}")
+
+                # Wait 5 seconds and check
+                await self.page.wait_for_timeout(5000)
+                logger.info(f"NETWORK_AUDIT_T5_REQUESTS={len(requests_log)}")
+                logger.info(f"NETWORK_AUDIT_T5_JSON={len(json_responses)}")
+
+                # Wait 10 more seconds (15 total) and check
+                await self.page.wait_for_timeout(10000)
+                logger.info(f"NETWORK_AUDIT_T15_REQUESTS={len(requests_log)}")
+                logger.info(f"NETWORK_AUDIT_T15_JSON={len(json_responses)}")
+
+                # Wait 5 more seconds (20 total) and check
+                await self.page.wait_for_timeout(5000)
+                logger.info(f"NETWORK_AUDIT_T20_REQUESTS={len(requests_log)}")
+                logger.info(f"NETWORK_AUDIT_T20_JSON={len(json_responses)}")
+
+                # Check DOM elements
+                main_count = await self.page.evaluate('document.querySelectorAll("main").length')
+                main_role = await self.page.evaluate('document.querySelectorAll("[role=\'main\']").length')
+                testid_count = await self.page.evaluate('document.querySelectorAll("[data-testid]").length')
+                btn_count = await self.page.evaluate('document.querySelectorAll("button").length')
+                walla_btn = await self.page.evaluate('document.querySelectorAll("walla-button").length')
+
+                logger.info(f"DOM_MAIN={main_count} | DOM_ROLE_MAIN={main_role} | DOM_DATA_TESTID={testid_count}")
+                logger.info(f"DOM_BUTTON={btn_count} | DOM_WALLA_BUTTON={walla_btn}")
+
+                # Check for banners
+                cookie_count = await self.page.evaluate('document.querySelectorAll("[class*=\'cookie\'],[id*=\'cookie\'],[class*=\'consent\'],[id*=\'consent\']").length')
+                banner_text = await self.page.evaluate('''
+                  Array.from(document.querySelectorAll("[class*='cookie'],[id*='cookie'],[class*='consent'],[id*='consent']"))
+                    .map(e => e.textContent?.slice(0,100) || '')
+                    .filter(t => t.length > 0)[0] || 'NONE'
+                ''')
+                logger.info(f"BANNER_COOKIE_CONSENT_COUNT={cookie_count}")
+                logger.info(f"BANNER_TEXT_SAMPLE={banner_text}")
+
+                # Get page text
+                body_text = await self.page.evaluate('document.body.innerText.slice(0, 3000)')
+                logger.info(f"BODY_TEXT_0_3000={body_text}")
+
                 # Ждем загрузки контента (пробуем несколько селекторов)
                 try:
                     await self.page.wait_for_selector('div[class*="ItemCard"]', timeout=10000)

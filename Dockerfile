@@ -24,6 +24,7 @@ COPY minimal_app.py .
 COPY production_scheduler.py .
 COPY production_wrapper.py .
 COPY monitoring_reporter.py .
+COPY hybrid_priority_config.py .
 
 # Set environment
 ENV PYTHONUNBUFFERED=1

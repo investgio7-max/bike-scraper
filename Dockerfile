@@ -4,8 +4,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for Playwright/Chromium
-RUN apt-get update && apt-get install -y \
+# Install system dependencies for Playwright/Chromium/CloakBrowser
+# These are required by Chromium to run on Linux
+RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     build-essential \
     libglib2.0-0 \
@@ -27,6 +28,19 @@ RUN apt-get update && apt-get install -y \
     libdbus-1-3 \
     libgbm1 \
     libasound2 \
+    libcups2 \
+    libexpat1 \
+    libfontconfig1 \
+    libfreetype6 \
+    libgomp1 \
+    libharfbuzz0b \
+    libjpeg62-turbo \
+    libpng16-16 \
+    libpulse0 \
+    libwebp7 \
+    libxss1 \
+    fonts-liberation \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements

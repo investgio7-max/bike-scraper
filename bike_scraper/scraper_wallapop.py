@@ -146,6 +146,55 @@ class WallapopScraper(BaseScraper):
         """
         await self.init_browser()
 
+        # === PROXY VERIFICATION (only once) ===
+        if not hasattr(self, '_proxy_verified'):
+            self._proxy_verified = True
+            proxy_ip = self._get_next_proxy()
+            if proxy_ip:
+                proxy_ip_display = proxy_ip.split('@')[1] if '@' in proxy_ip else proxy_ip[:30]
+                logger.info(f"🔐 PROXY_SELECTED={proxy_ip_display}")
+
+                try:
+                    # Check public IP via ipify
+                    await self.page.goto('https://api.ipify.org?format=json', wait_until='networkidle', timeout=15000)
+                    ipify_json = await self.page.content()
+                    import json
+                    ipify_data = json.loads(ipify_json.split('<pre style="word-wrap: break-word; white-space: pre-wrap;">')[1].split('</pre>')[0] if '<pre' in ipify_json else '{}')
+                    public_ip_1 = ipify_data.get('ip', 'UNKNOWN')
+                    logger.info(f"📍 PUBLIC_IP_IPIFY={public_ip_1}")
+                except Exception as e:
+                    logger.warning(f"⚠️ ipify check failed: {e}")
+                    public_ip_1 = 'ERROR'
+
+                try:
+                    # Check IP details via ipapi.co
+                    await self.page.goto('https://ipapi.co/json/', wait_until='networkidle', timeout=15000)
+                    ipapi_text = await self.page.content()
+                    import json
+                    # Extract JSON from HTML
+                    if '<pre>' in ipapi_text:
+                        json_str = ipapi_text.split('<pre>')[1].split('</pre>')[0]
+                    else:
+                        json_str = ipapi_text.split('<body>')[1].split('</body>')[0] if '<body>' in ipapi_text else '{}'
+
+                    ipapi_data = json.loads(json_str)
+                    public_ip_2 = ipapi_data.get('ip', 'UNKNOWN')
+                    country = ipapi_data.get('country_name', 'UNKNOWN')
+                    country_code = ipapi_data.get('country_code', 'UNKNOWN')
+                    city = ipapi_data.get('city', 'UNKNOWN')
+                    org = ipapi_data.get('org', 'UNKNOWN')
+
+                    logger.info(f"🌍 PUBLIC_IP={public_ip_2}")
+                    logger.info(f"🌎 COUNTRY={country}")
+                    logger.info(f"🔤 COUNTRY_CODE={country_code}")
+                    logger.info(f"🏙️ CITY={city}")
+                    logger.info(f"🏢 ORG={org}")
+
+                    if country and country_code:
+                        logger.info(f"✅ PROXY_VERIFICATION_COMPLETE: {country_code} ({country})")
+                except Exception as e:
+                    logger.warning(f"⚠️ ipapi check failed: {e}")
+
         logger.info(f"🔍 Ищу '{search_term}' на Wallapop (CloakBrowser)...")
 
         all_results = []
@@ -204,6 +253,12 @@ class WallapopScraper(BaseScraper):
                 self.page.on('response', on_response)
 
                 await self.page.goto(url, wait_until='networkidle', timeout=30000)
+
+                # === WALLAPOP PAGE INFO ===
+                wallapop_url = self.page.url
+                page_title = await self.page.title()
+                logger.info(f"WALLAPOP_FINAL_URL={wallapop_url}")
+                logger.info(f"PAGE_TITLE={page_title}")
 
                 # === PAGE AUDIT AFTER goto() ===
                 read_state = await self.page.evaluate('document.readyState')

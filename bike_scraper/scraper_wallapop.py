@@ -67,7 +67,7 @@ class WallapopScraper(BaseScraper):
         return proxies
 
     def _get_next_proxy(self) -> Optional[str]:
-        """Получить следующий proxy из списка (ротация)"""
+        """Получить следующий proxy из списка (ротация) - для CloakBrowser"""
         if not self.proxy_list:
             logger.warning("⚠️ No proxy available - using direct connection")
             return None
@@ -79,6 +79,30 @@ class WallapopScraper(BaseScraper):
         ip_port = proxy.split('@')[1] if '@' in proxy else proxy[:30]
         logger.info(f"📍 Using proxy: {current_index + 1}/{len(self.proxy_list)} ({ip_port})")
         return proxy
+
+    def _get_next_proxy_dict(self) -> Optional[dict]:
+        """Получить следующий proxy в формате Playwright (с отдельными username/password)"""
+        if not self.proxy_list:
+            return None
+
+        current_index = self.proxy_index % len(self.proxy_list)
+        proxy_str = self.proxy_list[current_index]
+        self.proxy_index += 1
+
+        # Parse proxy string: http://user:pass@host:port
+        from urllib.parse import urlparse
+        parsed = urlparse(proxy_str)
+
+        proxy_dict = {
+            "server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port}",
+            "username": parsed.username,
+            "password": parsed.password
+        }
+
+        ip_port = f"{parsed.hostname}:{parsed.port}"
+        logger.info(f"📍 Using proxy: {current_index + 1}/{len(self.proxy_list)} ({ip_port}) with credentials")
+
+        return proxy_dict
 
     async def init_browser(self):
         """Инициализировать браузер (CloakBrowser с humanize или Chromium)"""
@@ -103,7 +127,7 @@ class WallapopScraper(BaseScraper):
                 # Параметры для Chromium с proxy
                 kwargs = {"headless": True}
                 if self.use_proxy and self.proxy_list:
-                    kwargs["proxy"] = {"server": self._get_next_proxy()}
+                    kwargs["proxy"] = self._get_next_proxy_dict()
 
                 self.browser = await self.playwright.chromium.launch(**kwargs)
                 logger.info("✅ Chromium запущен")
@@ -114,7 +138,7 @@ class WallapopScraper(BaseScraper):
 
             kwargs = {"headless": True}
             if self.use_proxy and self.proxy_list:
-                kwargs["proxy"] = {"server": self._get_next_proxy()}
+                kwargs["proxy"] = self._get_next_proxy_dict()
 
             self.browser = await self.playwright.chromium.launch(**kwargs)
 

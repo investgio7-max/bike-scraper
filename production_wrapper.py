@@ -150,6 +150,81 @@ async def production_reports():
         "reports": production_scheduler.daily_reports
     }
 
+@app.post("/test-alert")
+async def send_test_alert(db: Session = Depends(get_db)):
+    """Send test deal alert to Telegram (smoke test)
+
+    Verifies that Telegram alert system is working correctly.
+    Returns message_id and chat_id for verification.
+    """
+    try:
+        from bike_scraper.telegram_alerts import TelegramAlertService, DealAlert
+        from telegram import Bot
+
+        # Get Telegram credentials
+        bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+        chat_id = os.getenv("TELEGRAM_CHAT_ID")
+
+        if not bot_token or not chat_id:
+            raise HTTPException(
+                status_code=400,
+                detail="TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not configured"
+            )
+
+        # Create test deal alert
+        test_deal = DealAlert(
+            listing_id="test_deal_api",
+            bike_name="Canyon Aeroad CF SLX 8 Di2 2022",
+            asking_price=2900,
+            market_price=4200,
+            discount_percent=30.95,
+            profit_potential=1300,
+            size="M",
+            groupset="Ultegra Di2",
+            year=2022,
+            confidence=95.0,
+            comparable_count=37,
+            listing_url="https://example.com/test-bike",
+            deal_grade="A-Tier"
+        )
+
+        # Send via Telegram Bot API
+        bot = Bot(token=bot_token)
+        alert_service = TelegramAlertService(
+            bot_token=bot_token,
+            chat_id=chat_id,
+            db_session=db
+        )
+
+        message_text = alert_service._build_message(test_deal)
+        keyboard = alert_service._build_keyboard(test_deal)
+
+        message = await bot.send_message(
+            chat_id=chat_id,
+            text=message_text,
+            reply_markup=keyboard,
+            parse_mode="HTML"
+        )
+
+        logger.info(f"✅ Test alert sent: message_id={message.message_id}")
+
+        return {
+            "status": "success",
+            "message": "test alert sent to Telegram",
+            "chat_id": message.chat_id,
+            "message_id": message.message_id,
+            "timestamp": datetime.now().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Failed to send test alert: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to send test alert: {str(e)}"
+        )
+
 def run_with_scheduler():
     """Run FastAPI + production scheduler together"""
     import uvicorn

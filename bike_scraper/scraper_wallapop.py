@@ -176,6 +176,75 @@ class WallapopScraper(BaseScraper):
                     logger.info(f"COUNT_cookie={count_cookie}")
                     logger.info(f"COUNT_consent={count_consent}")
 
+                    # Deep HTML diagnostics
+                    logger.info("=== DEEP HTML DIAGNOSTICS ===")
+
+                    # 1. Count specific tags
+                    count_wallapop_item_card = html.count('<wallapop-item-card')
+                    count_item_card_tag = html.count('<item-card')
+                    count_article = html.count('<article')
+                    count_section = html.count('<section')
+                    count_main = html.count('<main')
+
+                    logger.info(f"TAG_wallapop-item-card={count_wallapop_item_card}")
+                    logger.info(f"TAG_item-card={count_item_card_tag}")
+                    logger.info(f"TAG_article={count_article}")
+                    logger.info(f"TAG_section={count_section}")
+                    logger.info(f"TAG_main={count_main}")
+
+                    # 2. Find first 20 links with /item/ or /search/
+                    import re
+                    href_pattern = r'href=["\']((?:/item/|/search/)[^\s"\']*)'
+                    href_matches = re.findall(href_pattern, html)
+
+                    logger.info(f"LINKS_WITH_ITEM_OR_SEARCH={len(href_matches)}")
+                    for idx, href in enumerate(href_matches[:20]):
+                        logger.info(f"LINK_{idx}={href}")
+
+                    # 3. Analyze script tags
+                    script_count = html.count('<script')
+                    logger.info(f"SCRIPT_TAGS_TOTAL={script_count}")
+
+                    # Find script tags with size > 1000
+                    script_pattern = r'<script[^>]*>(.*?)</script>'
+                    scripts = re.findall(script_pattern, html, re.DOTALL)
+
+                    for idx, script in enumerate(scripts):
+                        if len(script) > 1000:
+                            script_type = 'unknown'
+                            if 'type="application/json"' in html[max(0, html.find(script)-200):html.find(script)]:
+                                script_type = 'json'
+                            elif 'type="text/javascript"' in html[max(0, html.find(script)-200):html.find(script)]:
+                                script_type = 'javascript'
+
+                            logger.info(f"SCRIPT_{idx}_TYPE={script_type} | LENGTH={len(script)} | FIRST_500={script[:500]}")
+
+                    # 4. Check for data formats
+                    count_next_data = html.count('__NEXT_DATA__')
+                    count_ld_json = html.count('application/ld+json')
+                    count_initial_state = html.count('initialState')
+                    count_apollo = html.count('apollo')
+                    count_search_result = html.count('searchResult')
+                    count_items = html.count('"items"')
+                    count_listings = html.count('listings')
+
+                    logger.info(f"NEXT_DATA={count_next_data}")
+                    logger.info(f"LD_JSON={count_ld_json}")
+                    logger.info(f"initialState={count_initial_state}")
+                    logger.info(f"apollo={count_apollo}")
+                    logger.info(f"searchResult={count_search_result}")
+                    logger.info(f"items={count_items}")
+                    logger.info(f"listings={count_listings}")
+
+                    # 5. Extract NEXT_DATA if found
+                    if count_next_data > 0:
+                        next_data_pattern = r'<script id="__NEXT_DATA__"[^>]*type="application/json">(.*?)</script>'
+                        next_data_match = re.search(next_data_pattern, html, re.DOTALL)
+                        if next_data_match:
+                            next_data_content = next_data_match.group(1)
+                            logger.info(f"NEXT_DATA_LENGTH={len(next_data_content)}")
+                            logger.info(f"NEXT_DATA_FIRST_3000={next_data_content[:3000]}")
+
                 # Парсим HTML
                 soup = BeautifulSoup(html, 'html.parser')
                 # Ищем карточки объявлений с фильтром: должна содержать ссылку на /item/

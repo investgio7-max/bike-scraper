@@ -23,6 +23,7 @@ COPY run_bot.py .
 COPY minimal_app.py .
 COPY production_scheduler.py .
 COPY production_wrapper.py .
+COPY monitoring_reporter.py .
 
 # Set environment
 ENV PYTHONUNBUFFERED=1

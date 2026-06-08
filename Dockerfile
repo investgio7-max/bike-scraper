@@ -4,14 +4,42 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for Chromium/CloakBrowser
-# Use chromium-browser package to automatically pull all dependencies
+# Install system dependencies for CloakBrowser Chromium
+# CloakBrowser downloads a pre-built Chromium binary that needs these libraries
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
-    wget \
     build-essential \
-    chromium-browser \
-    && apt-get clean \
+    libglib2.0-0 \
+    libx11-6 \
+    libx11-xcb1 \
+    libxcb1 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxi6 \
+    libxrandr2 \
+    libxrender1 \
+    libxext6 \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libdbus-1-3 \
+    libgbm1 \
+    libasound2 \
+    libpulse0 \
+    libcups2 \
+    libexpat1 \
+    libfontconfig1 \
+    libfreetype6 \
+    libharfbuzz0b \
+    libpng16-16 \
+    libwebp7 \
+    libxss1 \
+    libxkbcommon0 \
+    libxkbcommon-x11-0 \
+    fonts-liberation \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements

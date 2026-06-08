@@ -23,19 +23,22 @@ logger = logging.getLogger("production_wrapper")
 
 # Import production components
 from production_scheduler import ProductionScheduler
+from monitoring_reporter import MonitoringReporter
 from bike_scraper.database import get_db
 
 # FastAPI app
 app = FastAPI(title="Bike Scraper Production")
 
-# Global production scheduler instance
+# Global instances
 production_scheduler = None
 scheduler_task = None
+monitoring_reporter = None
+reporter_task = None
 
 @app.on_event("startup")
 async def startup_event():
     """Start production scheduler on API startup"""
-    global production_scheduler, scheduler_task
+    global production_scheduler, scheduler_task, monitoring_reporter, reporter_task
 
     logger.info("\n" + "="*70)
     logger.info("🚀 PRODUCTION MODE INITIALIZATION")
@@ -43,10 +46,26 @@ async def startup_event():
 
     production_scheduler = ProductionScheduler()
 
+    # Initialize monitoring reporter
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    chat_id = os.getenv("TELEGRAM_ADMIN_CHAT_ID") or os.getenv("TELEGRAM_CHAT_ID")
+
+    if bot_token and chat_id:
+        monitoring_reporter = MonitoringReporter(bot_token, chat_id)
+        logger.info("✅ Monitoring Reporter initialized")
+        logger.info(f"   📊 Daily reports at 09:00")
+        logger.info(f"   📈 7-day summary after 7 days\n")
+
+        # Start reporter task for daily Telegram reports
+        reporter_task = asyncio.create_task(monitoring_reporter.schedule_daily_report())
+    else:
+        logger.warning("⚠️  TELEGRAM_BOT_TOKEN or TELEGRAM_ADMIN_CHAT_ID not set - reporting disabled")
+
     # Start scheduler in background
     scheduler_task = asyncio.create_task(production_scheduler.run_24_7())
 
-    logger.info("\n✅ Production scheduler started in background\n")
+    logger.info("\n✅ Production scheduler started in background")
+    logger.info("✅ Daily Telegram reports ENABLED (09:00)\n")
 
 @app.on_event("shutdown")
 async def shutdown_event():
@@ -148,6 +167,43 @@ async def production_reports():
     return {
         "total_reports": len(production_scheduler.daily_reports),
         "reports": production_scheduler.daily_reports
+    }
+
+@app.get("/monitoring/daily-reports")
+async def monitoring_daily_reports():
+    """Get all daily monitoring reports"""
+    global monitoring_reporter
+
+    if not monitoring_reporter:
+        return {"error": "Monitoring reporter not initialized"}
+
+    return {
+        "total_days_tracked": len(monitoring_reporter.seven_day_reports),
+        "reports": monitoring_reporter.seven_day_reports,
+        "monitoring_since": monitoring_reporter.monitoring_start.isoformat(),
+    }
+
+@app.get("/monitoring/metrics")
+async def monitoring_current_metrics():
+    """Get today's monitoring metrics"""
+    global monitoring_reporter
+
+    if not monitoring_reporter:
+        return {"error": "Monitoring reporter not initialized"}
+
+    today_metrics = monitoring_reporter.get_today_metrics()
+    summary = today_metrics.get_summary()
+
+    return {
+        "date": summary["date"],
+        "listings_processed": summary["listings_processed"],
+        "deals_found": summary["deals_found"],
+        "alerts_sent": summary["alerts_sent"],
+        "avg_confidence": summary["avg_confidence"],
+        "avg_discount": summary["avg_discount"],
+        "false_positive_rate": summary["false_positive_rate"],
+        "total_profit_potential": summary["total_profit_potential"],
+        "telegram_success_rate": summary["telegram_success_rate"],
     }
 
 @app.post("/test-alert")

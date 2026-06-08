@@ -20,6 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY bike_scraper/ ./bike_scraper/
 COPY run_api.py .
 COPY run_bot.py .
+COPY minimal_app.py .
 
 # Set environment
 ENV PYTHONUNBUFFERED=1

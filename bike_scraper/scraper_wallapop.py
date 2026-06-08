@@ -35,26 +35,49 @@ class WallapopScraper(BaseScraper):
         self.proxy_index = 0
 
     def _load_proxies(self) -> List[str]:
-        """Загрузить proxies из environment variables"""
+        """Загрузить proxies из environment variables или использовать значения по умолчанию"""
+        default_proxies = [
+            "ZdeODemWWNu9JVR3:ZdeODemWWNu9JVR3@107.174.114.18:14109",
+            "knPTlBSAfKW37C8H:knPTlBSAfKW37C8H@37.143.131.235:12181",
+            "y1gG6aKEG56SPffZ:y1gG6aKEG56SPffZ@185.186.76.222:10584"
+        ]
+
         proxies = []
         for i in range(1, 4):
             proxy_var = f"PROXY_{i}"
             proxy = os.getenv(proxy_var)
+
+            # Если не найден в env, используем значение по умолчанию
+            if not proxy and i <= len(default_proxies):
+                proxy = default_proxies[i - 1]
+
             if proxy:
                 # Format: user:pass@ip:port -> http://user:pass@ip:port
                 if not proxy.startswith("http"):
                     proxy = f"http://{proxy}"
                 proxies.append(proxy)
-                logger.info(f"✅ Загружен proxy {i}: {proxy.split('@')[1] if '@' in proxy else proxy[:30]}")
+                ip_port = proxy.split('@')[1] if '@' in proxy else proxy[:30]
+                logger.info(f"✅ Загружен proxy {i}: {ip_port}")
+
+        if proxies:
+            logger.info(f"🔄 Proxy rotation ENABLED ({len(proxies)} proxies)")
+        else:
+            logger.warning(f"⚠️ Proxy rotation DISABLED (no proxies configured)")
+
         return proxies
 
     def _get_next_proxy(self) -> Optional[str]:
         """Получить следующий proxy из списка (ротация)"""
         if not self.proxy_list:
+            logger.warning("⚠️ No proxy available - using direct connection")
             return None
-        proxy = self.proxy_list[self.proxy_index % len(self.proxy_list)]
+
+        current_index = self.proxy_index % len(self.proxy_list)
+        proxy = self.proxy_list[current_index]
         self.proxy_index += 1
-        logger.debug(f"📍 Используется proxy: {self.proxy_index % len(self.proxy_list) + 1}/{len(self.proxy_list)}")
+
+        ip_port = proxy.split('@')[1] if '@' in proxy else proxy[:30]
+        logger.info(f"📍 Using proxy: {current_index + 1}/{len(self.proxy_list)} ({ip_port})")
         return proxy
 
     async def init_browser(self):

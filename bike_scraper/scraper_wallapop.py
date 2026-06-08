@@ -157,34 +157,28 @@ class WallapopScraper(BaseScraper):
                 try:
                     # Check public IP via ipify
                     await self.page.goto('https://api.ipify.org?format=json', wait_until='networkidle', timeout=15000)
-                    ipify_json = await self.page.content()
+                    ipify_json_str = await self.page.evaluate('document.body.innerText')
                     import json
-                    ipify_data = json.loads(ipify_json.split('<pre style="word-wrap: break-word; white-space: pre-wrap;">')[1].split('</pre>')[0] if '<pre' in ipify_json else '{}')
-                    public_ip_1 = ipify_data.get('ip', 'UNKNOWN')
-                    logger.info(f"📍 PUBLIC_IP_IPIFY={public_ip_1}")
+                    ipify_data = json.loads(ipify_json_str)
+                    public_ip = ipify_data.get('ip', 'UNKNOWN')
+                    logger.info(f"📍 PUBLIC_IP={public_ip}")
                 except Exception as e:
                     logger.warning(f"⚠️ ipify check failed: {e}")
-                    public_ip_1 = 'ERROR'
+                    public_ip = 'ERROR'
 
                 try:
                     # Check IP details via ipapi.co
                     await self.page.goto('https://ipapi.co/json/', wait_until='networkidle', timeout=15000)
-                    ipapi_text = await self.page.content()
+                    ipapi_json_str = await self.page.evaluate('document.body.innerText')
                     import json
-                    # Extract JSON from HTML
-                    if '<pre>' in ipapi_text:
-                        json_str = ipapi_text.split('<pre>')[1].split('</pre>')[0]
-                    else:
-                        json_str = ipapi_text.split('<body>')[1].split('</body>')[0] if '<body>' in ipapi_text else '{}'
+                    ipapi_data = json.loads(ipapi_json_str)
 
-                    ipapi_data = json.loads(json_str)
                     public_ip_2 = ipapi_data.get('ip', 'UNKNOWN')
                     country = ipapi_data.get('country_name', 'UNKNOWN')
                     country_code = ipapi_data.get('country_code', 'UNKNOWN')
                     city = ipapi_data.get('city', 'UNKNOWN')
                     org = ipapi_data.get('org', 'UNKNOWN')
 
-                    logger.info(f"🌍 PUBLIC_IP={public_ip_2}")
                     logger.info(f"🌎 COUNTRY={country}")
                     logger.info(f"🔤 COUNTRY_CODE={country_code}")
                     logger.info(f"🏙️ CITY={city}")

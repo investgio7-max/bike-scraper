@@ -128,6 +128,7 @@ async def main():
         try:
             from bike_scraper.price_analyzer import PriceAnalyzer
             from bike_scraper.database import get_db
+            from bike_scraper.models import Listing
 
             # Get DB session
             db = next(get_db())
@@ -136,8 +137,33 @@ async def main():
             analyzer = PriceAnalyzer(db)
             logger.info("✅ Price analyzer initialized")
 
-            # CORRECT API: analyze_listing (not analyze)
-            analysis = analyzer.analyze_listing(listing)
+            # Save to database and get ORM object with id
+            listing_orm = Listing(
+                source=listing.source,
+                listing_id=listing.listing_id,
+                url=listing.url,
+                title=listing.title,
+                description=listing.description,
+                price=listing.price,
+                currency=listing.currency,
+                seller_name=listing.seller_name,
+                seller_id=listing.seller_id,
+                seller_rating=listing.seller_rating,
+                seller_reviews_count=listing.seller_reviews_count,
+                location=listing.location,
+                country=listing.country,
+                date_posted=listing.date_posted,
+                images=listing.images or [],
+                main_image_url=listing.images[0] if listing.images else None,
+                raw_data=listing.raw_data or {},
+                is_active=True,
+                date_collected=datetime.utcnow(),
+            )
+            db.add(listing_orm)
+            db.flush()
+
+            # CORRECT API: analyze_listing with proper Listing ORM
+            analysis = analyzer.analyze_listing(listing_orm)
 
             if analysis:
                 market = analysis.get('market_analysis', {})

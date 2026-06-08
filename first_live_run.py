@@ -51,6 +51,7 @@ class FirstLiveRun:
             from bike_scraper.ai_bike_parser import AIBikeParser
             from bike_scraper.price_analyzer import PriceAnalyzer
             from bike_scraper.database import get_db
+            from bike_scraper.models import Listing
 
             from hybrid_priority_config import should_send_alert as check_hybrid_alert
 
@@ -83,13 +84,13 @@ class FirstLiveRun:
                     self.stats["found"] += len(listings)
 
                     # Process each listing
-                    for listing in listings:
+                    for listing_data in listings:
                         try:
                             # Parse
                             bike_data = parser.parse(
-                                title=listing.title,
-                                description=listing.description or "",
-                                images=listing.images or [],
+                                title=listing_data.title,
+                                description=listing_data.description or "",
+                                images=listing_data.images or [],
                                 analyze_images=False
                             )
 
@@ -99,6 +100,31 @@ class FirstLiveRun:
                                 continue
 
                             self.stats["parsed"] += 1
+
+                            # Save to database and get ORM object with id
+                            listing = Listing(
+                                source=listing_data.source,
+                                listing_id=listing_data.listing_id,
+                                url=listing_data.url,
+                                title=listing_data.title,
+                                description=listing_data.description,
+                                price=listing_data.price,
+                                currency=listing_data.currency,
+                                seller_name=listing_data.seller_name,
+                                seller_id=listing_data.seller_id,
+                                seller_rating=listing_data.seller_rating,
+                                seller_reviews_count=listing_data.seller_reviews_count,
+                                location=listing_data.location,
+                                country=listing_data.country,
+                                date_posted=listing_data.date_posted,
+                                images=listing_data.images or [],
+                                main_image_url=listing_data.images[0] if listing_data.images else None,
+                                raw_data=listing_data.raw_data or {},
+                                is_active=True,
+                                date_collected=datetime.utcnow(),
+                            )
+                            db.add(listing)
+                            db.flush()
 
                             # Analyze
                             analysis = analyzer.analyze_listing(listing)

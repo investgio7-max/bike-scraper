@@ -136,6 +136,50 @@ class WallapopScraper(BaseScraper):
                 logger.debug(f"📄 Загружаю страницу {page + 1}: {url}")
 
                 # Загружаем страницу через браузер
+                # Перехватываем все сетевые запросы
+                requests_log = []
+                json_responses = []
+
+                async def on_response(response):
+                    try:
+                        request = response.request
+                        req_url = request.url
+                        method = request.method
+                        status = response.status
+                        content_type = response.headers.get('content-type', '')
+
+                        # Пытаемся получить размер ответа
+                        try:
+                            response_body = await response.text()
+                            response_size = len(response_body)
+                        except:
+                            response_body = None
+                            response_size = 0
+
+                        requests_log.append({
+                            'url': req_url,
+                            'method': method,
+                            'status': status,
+                            'content_type': content_type,
+                            'size': response_size,
+                            'body': response_body
+                        })
+
+                        # Логируем JSON ответы с нужными ключевыми словами
+                        keywords = ['api', 'search', 'items', 'listings', 'graphql', 'feed', 'catalog', 'ads', 'results']
+                        if any(kw in req_url.lower() for kw in keywords):
+                            if 'application/json' in content_type:
+                                json_responses.append({
+                                    'url': req_url,
+                                    'status': status,
+                                    'size': response_size,
+                                    'body': response_body[:1000] if response_body else ''
+                                })
+                    except:
+                        pass
+
+                self.page.on('response', on_response)
+
                 await self.page.goto(url, wait_until='networkidle', timeout=30000)
 
                 # Ждем загрузки контента (пробуем несколько селекторов)
@@ -352,6 +396,33 @@ class WallapopScraper(BaseScraper):
                         first_link = first_item.find('a')
                         first_href = first_link.get('href', 'NO_HREF') if first_link else 'NO_LINK'
                         logger.info(f"DEBUG_ARTICLES_FIRST: tag={first_item.name} | class={first_item.get('class', [])} | href={first_href}")
+
+                # Логируем сетевые запросы
+                if page == 0 and requests_log:
+                    logger.info("=== NETWORK REQUESTS AUDIT ===")
+                    logger.info(f"TOTAL_REQUESTS={len(requests_log)}")
+
+                    # Отфильтруем запросы с нужными ключевыми словами
+                    keywords = ['api', 'search', 'items', 'listings', 'graphql', 'feed', 'catalog', 'ads', 'results']
+                    filtered_requests = [r for r in requests_log if any(kw in r['url'].lower() for kw in keywords)]
+
+                    logger.info(f"FILTERED_REQUESTS_WITH_KEYWORDS={len(filtered_requests)}")
+
+                    for idx, req in enumerate(filtered_requests[:20]):
+                        logger.info(f"REQ_{idx}: URL={req['url']} | METHOD={req['method']} | STATUS={req['status']} | TYPE={req['content_type']} | SIZE={req['size']}")
+
+                    # Логируем JSON ответы
+                    logger.info(f"JSON_RESPONSES_FOUND={len(json_responses)}")
+                    for idx, resp in enumerate(json_responses[:10]):
+                        logger.info(f"JSON_{idx}: URL={resp['url']} | STATUS={resp['status']} | SIZE={resp['size']}")
+                        if resp['body']:
+                            logger.info(f"JSON_{idx}_BODY[0:1000]={resp['body']}")
+
+                    # Сортируем по размеру и логируем топ 20
+                    sorted_by_size = sorted(requests_log, key=lambda x: x['size'], reverse=True)
+                    logger.info("=== TOP 20 REQUESTS BY RESPONSE SIZE ===")
+                    for idx, req in enumerate(sorted_by_size[:20]):
+                        logger.info(f"SIZE_{idx}: {req['size']} bytes | URL={req['url'][:100]}")
 
                 if not listings:
                     logger.debug(f"Страница {page + 1} пуста")

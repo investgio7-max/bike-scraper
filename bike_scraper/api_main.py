@@ -598,6 +598,29 @@ async def get_env():
     }
 
 
+@app.get("/debug-localhost", tags=["System"])
+async def debug_localhost():
+    """Test if localhost:8000 is reachable from inside container"""
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["curl", "-s", "-w", "\n%{http_code}", "http://localhost:8000/ping"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        return {
+            "localhost_8000_reachable": True,
+            "response_body": result.stdout,
+            "return_code": result.returncode
+        }
+    except Exception as e:
+        return {
+            "localhost_8000_reachable": False,
+            "error": str(e)
+        }
+
+
 @app.get("/", tags=["System"])
 async def root():
     """Информация об API"""

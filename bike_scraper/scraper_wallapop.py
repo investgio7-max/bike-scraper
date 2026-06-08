@@ -167,27 +167,28 @@ class WallapopScraper(BaseScraper):
                     public_ip = 'ERROR'
 
                 try:
-                    # Check IP details via ipapi.co
-                    await self.page.goto('https://ipapi.co/json/', wait_until='networkidle', timeout=15000)
-                    ipapi_json_str = await self.page.evaluate('document.body.innerText')
+                    # Check IP details via ipinfo.io
+                    await self.page.goto('https://ipinfo.io/json', wait_until='networkidle', timeout=15000)
+                    ipinfo_json_str = await self.page.evaluate('document.body.innerText')
                     import json
-                    ipapi_data = json.loads(ipapi_json_str)
+                    ipinfo_data = json.loads(ipinfo_json_str)
 
-                    public_ip_2 = ipapi_data.get('ip', 'UNKNOWN')
-                    country = ipapi_data.get('country_name', 'UNKNOWN')
-                    country_code = ipapi_data.get('country_code', 'UNKNOWN')
-                    city = ipapi_data.get('city', 'UNKNOWN')
-                    org = ipapi_data.get('org', 'UNKNOWN')
+                    ip = ipinfo_data.get('ip', 'UNKNOWN')
+                    country = ipinfo_data.get('country', 'UNKNOWN')
+                    region = ipinfo_data.get('region', 'UNKNOWN')
+                    city = ipinfo_data.get('city', 'UNKNOWN')
+                    org = ipinfo_data.get('org', 'UNKNOWN')
 
+                    logger.info(f"🌍 IP={ip}")
                     logger.info(f"🌎 COUNTRY={country}")
-                    logger.info(f"🔤 COUNTRY_CODE={country_code}")
+                    logger.info(f"🗺️ REGION={region}")
                     logger.info(f"🏙️ CITY={city}")
                     logger.info(f"🏢 ORG={org}")
 
-                    if country and country_code:
-                        logger.info(f"✅ PROXY_VERIFICATION_COMPLETE: {country_code} ({country})")
+                    if country:
+                        logger.info(f"✅ PROXY_VERIFICATION_COMPLETE: {country} ({city})")
                 except Exception as e:
-                    logger.warning(f"⚠️ ipapi check failed: {e}")
+                    logger.warning(f"⚠️ ipinfo check failed: {e}")
 
         logger.info(f"🔍 Ищу '{search_term}' на Wallapop (CloakBrowser)...")
 
@@ -299,7 +300,29 @@ class WallapopScraper(BaseScraper):
                 body_text = await self.page.evaluate('document.body.innerText.slice(0, 3000)')
                 logger.info(f"BODY_TEXT_0_3000={body_text}")
 
-                # Ждем загрузки контента (пробуем несколько селекторов)
+                # === WALLAPOP PAGE FACTS (first page only) ===
+                if page == 0:
+                    # Collect facts
+                    page_title = await self.page.title()
+                    final_url = self.page.url
+                    body_text_2000 = await self.page.evaluate('document.body.innerText.slice(0, 2000)')
+                    has_nada_por_aqui = await self.page.evaluate('document.body.innerText.includes("Nada por aquí")')
+                    has_nothing_here = await self.page.evaluate('document.body.innerText.includes("Nothing here") || document.body.innerText.includes("nothing here")')
+
+                    logger.info(f"WALLAPOP_FINAL_URL={final_url}")
+                    logger.info(f"WALLAPOP_PAGE_TITLE={page_title}")
+                    logger.info(f"WALLAPOP_BODY_TEXT_0_2000={body_text_2000}")
+                    logger.info(f"WALLAPOP_HAS_NADA_POR_AQUI={has_nada_por_aqui}")
+                    logger.info(f"WALLAPOP_HAS_NOTHING_HERE={has_nothing_here}")
+
+                    # Take screenshot
+                    try:
+                        screenshot = await self.page.screenshot(path='/tmp/wallapop_screenshot.png')
+                        logger.info(f"📸 WALLAPOP_SCREENSHOT_TAKEN=/tmp/wallapop_screenshot.png")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Screenshot failed: {e}")
+
+                # Ждем загрузки контента (пробуем несколько селекторы)
                 try:
                     await self.page.wait_for_selector('div[class*="ItemCard"]', timeout=10000)
                 except:

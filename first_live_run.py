@@ -52,6 +52,8 @@ class FirstLiveRun:
             from bike_scraper.price_analyzer import PriceAnalyzer
             from bike_scraper.database import get_db
 
+            from hybrid_priority_config import should_send_alert as check_hybrid_alert
+
             scraper = WallapopScraper(use_proxy=True)
             parser = AIBikeParser()
             db = next(get_db())
@@ -106,22 +108,23 @@ class FirstLiveRun:
                                 self.stats["rejection_reasons"]["analysis_failed"] += 1
                                 continue
 
-                            # Check filters
+                            # Check filters with HYBRID PRIORITY MODE
                             market = analysis.get('market_analysis', {})
                             confidence = bike_data.get('confidence', 0)
                             discount = market.get('profit_percent', 0)
                             comparables = market.get('comparable_count', 0)
+                            model = bike_data.get('model', '').lower()
 
-                            if confidence < 90:
-                                self.stats["rejection_reasons"]["low_confidence"] += 1
-                                continue
+                            # Apply hybrid priority logic
+                            should_send, reason, tier = check_hybrid_alert(
+                                model=model,
+                                confidence=confidence,
+                                comparables=comparables,
+                                discount=discount
+                            )
 
-                            if discount < 20:
-                                self.stats["rejection_reasons"]["low_discount"] += 1
-                                continue
-
-                            if comparables < 25:
-                                self.stats["rejection_reasons"]["low_comparables"] += 1
+                            if not should_send:
+                                self.stats["rejection_reasons"][reason] += 1
                                 continue
 
                             # Deal found!
@@ -136,13 +139,15 @@ class FirstLiveRun:
                                 "discount_percent": discount,
                                 "confidence": confidence,
                                 "comparables": comparables,
+                                "tier": tier,
                                 "url": listing.url,
                                 "timestamp": datetime.now().isoformat(),
                             }
 
                             self.stats["sent_alerts"].append(alert)
 
-                            logger.info(f"   ✅ DEAL: {alert['bike_name']} - €{alert['price']} ({alert['discount_percent']:.1f}% off)")
+                            tier_icon = "🔥" if tier == "tier_1" else ""
+                            logger.info(f"   ✅ DEAL: {alert['bike_name']} - €{alert['price']} ({alert['discount_percent']:.1f}% off) [{tier.upper()} {tier_icon}]")
 
                         except Exception as e:
                             logger.debug(f"   Error processing listing: {e}")

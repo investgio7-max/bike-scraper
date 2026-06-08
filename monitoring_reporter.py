@@ -50,6 +50,10 @@ class DailyMetrics:
             # Detailed deals
             "all_deals": [],        # Full deal objects
 
+            # HYBRID PRIORITY MODE: Track tiers separately
+            "tier_1_deals": [],     # Tier 1 deals
+            "tier_2_deals": [],     # Tier 2 deals
+
             # Alert performance
             "telegram_sent": 0,
             "telegram_errors": 0,
@@ -69,6 +73,13 @@ class DailyMetrics:
         self.metrics["profits"].append(deal.get("profit_potential", 0))
         self.metrics["all_deals"].append(deal)
 
+        # HYBRID PRIORITY MODE: Separate by tier
+        tier = deal.get("tier", "tier_2")
+        if tier == "tier_1":
+            self.metrics["tier_1_deals"].append(deal)
+        else:
+            self.metrics["tier_2_deals"].append(deal)
+
     def get_summary(self) -> Dict:
         """Get calculated metrics"""
         deals = self.metrics["all_deals"]
@@ -80,6 +91,22 @@ class DailyMetrics:
             "listings_rejected": self.metrics["listings_rejected"],
             "deals_found": self.metrics["deals_found"],
             "alerts_sent": self.metrics["alerts_sent"],
+
+            # HYBRID PRIORITY MODE: Tier statistics
+            "tier_1_deals_found": len(self.metrics["tier_1_deals"]),
+            "tier_1_alerts_sent": len(self.metrics["tier_1_deals"]),
+            "tier_1_avg_profit": (
+                sum(d.get("profit_potential", 0) for d in self.metrics["tier_1_deals"])
+                / len(self.metrics["tier_1_deals"])
+                if self.metrics["tier_1_deals"] else 0
+            ),
+            "tier_2_deals_found": len(self.metrics["tier_2_deals"]),
+            "tier_2_alerts_sent": len(self.metrics["tier_2_deals"]),
+            "tier_2_avg_profit": (
+                sum(d.get("profit_potential", 0) for d in self.metrics["tier_2_deals"])
+                / len(self.metrics["tier_2_deals"])
+                if self.metrics["tier_2_deals"] else 0
+            ),
 
             "avg_confidence": (
                 sum(self.metrics["confidences"]) / len(self.metrics["confidences"])
@@ -216,6 +243,12 @@ class MonitoringReporter:
 ├─ Listings Rejected:  {summary['listings_rejected']}
 ├─ Deals Found:        {summary['deals_found']}
 └─ Alerts Sent:        {summary['alerts_sent']}
+
+🔥 HYBRID PRIORITY MODE (Tier 1 vs Tier 2)
+├─ Tier 1 Deals:       {summary['tier_1_deals_found']}
+├─ Tier 1 Avg Profit:  €{summary['tier_1_avg_profit']:.0f}
+├─ Tier 2 Deals:       {summary['tier_2_deals_found']}
+└─ Tier 2 Avg Profit:  €{summary['tier_2_avg_profit']:.0f}
 
 ⭐ QUALITY METRICS
 ├─ Avg Confidence:     {summary['avg_confidence']:.1f}%

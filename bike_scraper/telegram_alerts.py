@@ -46,6 +46,7 @@ class DealAlert:
     listing_url: str
     deal_grade: str
     timestamp: datetime = None
+    tier: str = "tier_2"  # HYBRID PRIORITY MODE: tier_1 or tier_2
 
     def __post_init__(self):
         if self.timestamp is None:
@@ -200,6 +201,9 @@ class TelegramAlertService:
     def _build_message(self, alert: DealAlert) -> str:
         """Build Telegram message text"""
 
+        # HYBRID PRIORITY MODE: Show tier
+        tier_badge = "🔥 TIER 1" if alert.tier == "tier_1" else "TIER 2"
+
         message = f"""🚨 {alert.deal_grade} DEAL FOUND
 
 🚴 {alert.bike_name}
@@ -217,6 +221,8 @@ class TelegramAlertService:
 
 🎯 Confidence: {alert.confidence:.0f}%
 📊 Comparables: {alert.comparable_count}
+
+⭐ Priority: {tier_badge}
 
 🔗 {alert.listing_url}"""
 

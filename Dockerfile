@@ -18,6 +18,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application
 COPY bike_scraper/ ./bike_scraper/
+COPY run_api.py .
 COPY run_bot.py .
 
 # Set environment
@@ -32,5 +33,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:${PORT}/health || exit 1
 
-# Run Telegram bot
-CMD ["python", "run_bot.py"]
+# Run FastAPI with Telegram bot
+CMD ["python", "run_api.py"]

@@ -279,7 +279,7 @@ class WallapopScraper(BaseScraper):
                 try:
                     await self.page.goto(url, wait_until='networkidle', timeout=30000)
                     logger.info(f"✅ GOTO_SUCCESS")
-                except asyncio.TimeoutError as e:
+                except TimeoutError as e:
                     logger.error(f"❌ GOTO_TIMEOUT: {str(e)[:200]}")
                     logger.info(f"📡 REQUESTS_CAPTURED_DURING_TIMEOUT={len(requests_log)}")
 
@@ -289,20 +289,23 @@ class WallapopScraper(BaseScraper):
                         logger.info(f"📡 FIRST_REQUEST: {first_req['url'][:100]}")
                         logger.info(f"📡 FIRST_RESPONSE_STATUS={first_req['status']}")
                         logger.info(f"📡 FIRST_RESPONSE_SIZE={first_req['size']}")
+                    else:
+                        logger.info(f"📡 NO REQUESTS CAPTURED - network unreachable")
 
                     # Log all statuses
-                    statuses = {}
-                    for req in requests_log:
-                        status = req['status']
-                        if status not in statuses:
-                            statuses[status] = 0
-                        statuses[status] += 1
-                    logger.info(f"📡 RESPONSE_STATUSES: {statuses}")
+                    if requests_log:
+                        statuses = {}
+                        for req in requests_log:
+                            status = req['status']
+                            if status not in statuses:
+                                statuses[status] = 0
+                            statuses[status] += 1
+                        logger.info(f"📡 RESPONSE_STATUSES: {statuses}")
 
                     # Continue anyway to see what loaded
                     logger.warning(f"⚠️ Continuing despite timeout...")
                 except Exception as e:
-                    logger.error(f"❌ GOTO_ERROR: {str(e)[:200]}")
+                    logger.error(f"❌ GOTO_ERROR: {type(e).__name__}: {str(e)[:200]}")
                     logger.info(f"📡 REQUESTS_CAPTURED={len(requests_log)}")
                     raise
 

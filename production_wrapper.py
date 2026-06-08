@@ -163,7 +163,8 @@ async def send_test_alert(db: Session = Depends(get_db)):
 
         # Get Telegram credentials
         bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
-        chat_id = os.getenv("TELEGRAM_CHAT_ID")
+        # Try both variable names (TELEGRAM_CHAT_ID and TELEGRAM_ADMIN_CHAT_ID)
+        chat_id = os.getenv("TELEGRAM_CHAT_ID") or os.getenv("TELEGRAM_ADMIN_CHAT_ID")
 
         if not bot_token or not chat_id:
             raise HTTPException(

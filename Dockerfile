@@ -39,6 +39,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxkbcommon0 \
     libxkbcommon-x11-0 \
     libcairo2 \
+    libpango-1.0-0 \
     fonts-liberation \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*

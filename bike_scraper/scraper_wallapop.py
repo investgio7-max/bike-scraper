@@ -245,6 +245,74 @@ class WallapopScraper(BaseScraper):
                             logger.info(f"NEXT_DATA_LENGTH={len(next_data_content)}")
                             logger.info(f"NEXT_DATA_FIRST_3000={next_data_content[:3000]}")
 
+                            # Parse JSON and search for listing-related keys
+                            try:
+                                import json
+                                next_data_json = json.loads(next_data_content)
+                                logger.info("=== NEXT_DATA JSON STRUCTURE ANALYSIS ===")
+
+                                # Keys to search for
+                                search_keys = ['listing', 'listings', 'item', 'items', 'search', 'searchResults', 'feed', 'cards', 'products']
+
+                                def find_keys_recursive(obj, target_keys, path=''):
+                                    """Recursively search for target keys in JSON structure"""
+                                    results = []
+
+                                    if isinstance(obj, dict):
+                                        for key, value in obj.items():
+                                            current_path = f"{path}.{key}" if path else key
+
+                                            # Check if this key matches any target key
+                                            if key.lower() in [tk.lower() for tk in target_keys]:
+                                                obj_type = type(value).__name__
+                                                count = len(value) if isinstance(value, (list, dict)) else 1
+                                                results.append({
+                                                    'path': current_path,
+                                                    'type': obj_type,
+                                                    'count': count,
+                                                    'value': value
+                                                })
+
+                                            # Recurse into nested structures
+                                            results.extend(find_keys_recursive(value, target_keys, current_path))
+
+                                    elif isinstance(obj, list):
+                                        for idx, item in enumerate(obj[:3]):  # Only check first 3 items
+                                            results.extend(find_keys_recursive(item, target_keys, f"{path}[{idx}]"))
+
+                                    return results
+
+                                # Find all matching keys
+                                matches = find_keys_recursive(next_data_json, search_keys)
+
+                                # Log findings
+                                for match in matches:
+                                    path = match['path']
+                                    obj_type = match['type']
+                                    count = match['count']
+
+                                    logger.info(f"FOUND_KEY: PATH={path} | TYPE={obj_type} | COUNT={count}")
+
+                                    # If it's a list with objects, show first 3
+                                    if isinstance(match['value'], list) and len(match['value']) > 0:
+                                        for idx, item in enumerate(match['value'][:3]):
+                                            if isinstance(item, dict):
+                                                logger.info(f"  ITEM_{idx}={json.dumps(item)[:500]}")
+
+                                # Check for required fields in listings arrays
+                                logger.info("=== REQUIRED FIELDS CHECK ===")
+                                required_fields = ['id', 'title', 'description', 'price', 'web_slug', 'slug', 'url', 'images', 'seller']
+
+                                for match in matches:
+                                    if isinstance(match['value'], list) and len(match['value']) > 0:
+                                        first_item = match['value'][0]
+                                        if isinstance(first_item, dict):
+                                            found_fields = [f for f in required_fields if f in first_item]
+                                            logger.info(f"PATH={match['path']} | FIELDS_FOUND={found_fields}")
+
+                            except Exception as e:
+                                logger.error(f"ERROR_PARSING_NEXT_DATA: {e}")
+
                 # Парсим HTML
                 soup = BeautifulSoup(html, 'html.parser')
                 # Ищем карточки объявлений с фильтром: должна содержать ссылку на /item/

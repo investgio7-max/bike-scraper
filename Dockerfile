@@ -4,43 +4,14 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies for Playwright/Chromium/CloakBrowser
-# These are required by Chromium to run on Linux
+# Install system dependencies for Chromium/CloakBrowser
+# Use chromium-browser package to automatically pull all dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    wget \
     build-essential \
-    libglib2.0-0 \
-    libglib2.0-dev \
-    libx11-6 \
-    libx11-xcb1 \
-    libxcb1 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxi6 \
-    libxrandr2 \
-    libxrender1 \
-    libxext6 \
-    libnss3 \
-    libnspr4 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libdbus-1-3 \
-    libgbm1 \
-    libasound2 \
-    libcups2 \
-    libexpat1 \
-    libfontconfig1 \
-    libfreetype6 \
-    libgomp1 \
-    libharfbuzz0b \
-    libjpeg62-turbo \
-    libpng16-16 \
-    libpulse0 \
-    libwebp7 \
-    libxss1 \
-    fonts-liberation \
-    ca-certificates \
+    chromium-browser \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements

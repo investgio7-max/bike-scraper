@@ -151,6 +151,13 @@ class WallapopScraper(BaseScraper):
                 soup = BeautifulSoup(html, 'html.parser')
                 # Ищем карточки объявлений с фильтром: должна содержать ссылку на /item/
                 all_items = soup.find_all('div', class_=lambda x: x and 'ItemCard' in x)
+                logger.info(f"DEBUG_ALL_ITEMS={len(all_items)}")
+                if all_items:
+                    first_item = all_items[0]
+                    first_link = first_item.find('a')
+                    first_href = first_link.get('href', 'NO_HREF') if first_link else 'NO_LINK'
+                    logger.info(f"DEBUG_ALL_ITEMS_FIRST: tag={first_item.name} | class={first_item.get('class', [])} | href={first_href}")
+
                 listings = []
                 for item in all_items:
                     # Проверяем что это реальное объявление (не реклама)
@@ -158,12 +165,27 @@ class WallapopScraper(BaseScraper):
                     if link:
                         listings.append(item)
 
+                logger.info(f"DEBUG_ITEM_LINKS={len(listings)} (из {len(all_items)})")
+                if listings:
+                    first_item = listings[0]
+                    first_link = first_item.find('a', href=lambda x: x and '/item/' in x)
+                    first_href = first_link.get('href', 'NO_HREF') if first_link else 'NO_LINK'
+                    logger.info(f"DEBUG_ITEM_LINKS_FIRST: tag={first_item.name} | class={first_item.get('class', [])} | href={first_href}")
+
                 if not listings and all_items:
                     # Fallback: если не нашли /item/, возьмём все ItemCard
+                    logger.info("DEBUG_FALLBACK1_TRIGGERED")
                     listings = all_items
 
                 if not listings:
+                    logger.info("DEBUG_FALLBACK2_TRIGGERED")
                     listings = soup.find_all('article')
+                    logger.info(f"DEBUG_ARTICLES={len(listings)}")
+                    if listings:
+                        first_item = listings[0]
+                        first_link = first_item.find('a')
+                        first_href = first_link.get('href', 'NO_HREF') if first_link else 'NO_LINK'
+                        logger.info(f"DEBUG_ARTICLES_FIRST: tag={first_item.name} | class={first_item.get('class', [])} | href={first_href}")
 
                 if not listings:
                     logger.debug(f"Страница {page + 1} пуста")

@@ -29,9 +29,9 @@ ENV PORT=8000
 # Expose port for Railway
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:${PORT}/health || exit 1
+# Health check (disabled - Railway handles health checks via API endpoints)
+# HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+#     CMD curl -f http://localhost:${PORT}/health || exit 1
 
 # Run FastAPI with Telegram bot
 CMD ["python3", "-u", "run_api.py"]

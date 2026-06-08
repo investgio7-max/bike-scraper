@@ -34,6 +34,5 @@ EXPOSE 8000
 # HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 #     CMD curl -f http://localhost:${PORT}/health || exit 1
 
-# Run FastAPI with Telegram bot
-# CMD removed - using railway.toml startCommand only
-# CMD ["python3", "-u", "run_api.py"]
+# Run minimal app for diagnostics
+CMD ["python", "minimal_app.py"]

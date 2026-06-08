@@ -5,7 +5,6 @@ builder = "dockerfile"
 dockerfile = "Dockerfile"
 
 [deploy]
-startCommand = "python minimal_app.py"
 restartPolicyType = "always"
 restartPolicyMaxRetries = 5
 
@@ -19,6 +18,7 @@ TELEGRAM_BOT_TOKEN = ""  # Set via Railway dashboard
 TELEGRAM_CHAT_ID = ""    # Set via Railway dashboard
 LOG_LEVEL = "INFO"
 ENVIRONMENT = "production"
+PORT = "8000"
 
 [services.healthchecks]
 # Health check configuration

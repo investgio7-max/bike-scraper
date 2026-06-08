@@ -583,6 +583,21 @@ async def ping():
     return {"status": "ok"}
 
 
+@app.get("/env", tags=["System"])
+async def get_env():
+    """Show environment variables"""
+    import os
+    return {
+        "PORT": os.environ.get("PORT"),
+        "API_PORT": os.environ.get("API_PORT"),
+        "API_HOST": os.environ.get("API_HOST"),
+        "RAILWAY_PUBLIC_DOMAIN": os.environ.get("RAILWAY_PUBLIC_DOMAIN"),
+        "RAILWAY_SERVICE_ID": os.environ.get("RAILWAY_SERVICE_ID"),
+        "current_api_port": API_PORT,
+        "current_api_host": API_HOST
+    }
+
+
 @app.get("/", tags=["System"])
 async def root():
     """Информация об API"""

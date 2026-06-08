@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 import re
 import asyncio
 import os
+import time
 from playwright.async_api import async_playwright
 
 from bike_scraper.scraper_base import BaseScraper, ListingData
@@ -230,14 +231,40 @@ class WallapopScraper(BaseScraper):
                 # Перехватываем все сетевые запросы
                 requests_log = []
                 json_responses = []
+                requests_by_time = []  # Для отслеживания времени запросов
+                start_goto_time = None
+
+                async def on_request(request):
+                    """Логируем каждый запрос с временем"""
+                    nonlocal start_goto_time
+                    if start_goto_time is None:
+                        start_goto_time = time.time()
+
+                    elapsed = time.time() - start_goto_time
+                    resource_type = request.resource_type
+                    req_url = request.url
+
+                    requests_by_time.append({
+                        'timestamp': elapsed,
+                        'method': request.method,
+                        'url': req_url,
+                        'resource_type': resource_type,
+                        'status': None  # Будет заполнено в on_response
+                    })
 
                 async def on_response(response):
+                    nonlocal start_goto_time
+                    if start_goto_time is None:
+                        start_goto_time = time.time()
+
+                    elapsed = time.time() - start_goto_time
                     try:
                         request = response.request
                         req_url = request.url
                         method = request.method
                         status = response.status
                         content_type = response.headers.get('content-type', '')
+                        resource_type = request.resource_type
 
                         # Пытаемся получить размер ответа
                         try:
@@ -253,7 +280,9 @@ class WallapopScraper(BaseScraper):
                             'status': status,
                             'content_type': content_type,
                             'size': response_size,
-                            'body': response_body
+                            'body': response_body,
+                            'resource_type': resource_type,
+                            'timestamp': elapsed
                         })
 
                         # Логируем JSON ответы с нужными ключевыми словами
@@ -269,9 +298,11 @@ class WallapopScraper(BaseScraper):
                     except:
                         pass
 
+                self.page.on('request', on_request)
                 self.page.on('response', on_response)
 
                 # === DIAGNOSTICS: Page load attempt ===
+                start_goto_time = time.time()
                 logger.info(f"📡 GOTO_ATTEMPT: {url}")
                 logger.info(f"📡 GOTO_TIMEOUT=30000ms | WAIT_UNTIL=networkidle")
                 logger.info(f"📡 REQUESTS_CAPTURED_BEFORE_GOTO={len(requests_log)}")
@@ -281,26 +312,87 @@ class WallapopScraper(BaseScraper):
                     logger.info(f"✅ GOTO_SUCCESS")
                 except TimeoutError as e:
                     logger.error(f"❌ GOTO_TIMEOUT: {str(e)[:200]}")
-                    logger.info(f"📡 REQUESTS_CAPTURED_DURING_TIMEOUT={len(requests_log)}")
 
-                    # Log first response if available
-                    if requests_log:
-                        first_req = requests_log[0]
-                        logger.info(f"📡 FIRST_REQUEST: {first_req['url'][:100]}")
-                        logger.info(f"📡 FIRST_RESPONSE_STATUS={first_req['status']}")
-                        logger.info(f"📡 FIRST_RESPONSE_SIZE={first_req['size']}")
-                    else:
-                        logger.info(f"📡 NO REQUESTS CAPTURED - network unreachable")
+                    # === DETAILED NETWORK DIAGNOSTICS ===
+                    total_requests = len(requests_log)
+                    logger.info(f"📡 TOTAL_REQUESTS={total_requests}")
 
-                    # Log all statuses
-                    if requests_log:
-                        statuses = {}
-                        for req in requests_log:
-                            status = req['status']
-                            if status not in statuses:
-                                statuses[status] = 0
-                            statuses[status] += 1
-                        logger.info(f"📡 RESPONSE_STATUSES: {statuses}")
+                    # Count responses by status
+                    response_statuses = {}
+                    for req in requests_log:
+                        status = req.get('status')
+                        if status not in response_statuses:
+                            response_statuses[status] = 0
+                        response_statuses[status] += 1
+
+                    total_responses = sum(response_statuses.values())
+                    logger.info(f"📡 TOTAL_RESPONSES={total_responses}")
+                    logger.info(f"📡 RESPONSE_STATUSES={response_statuses}")
+
+                    # Analyze resource types
+                    resource_types = {}
+                    for req in requests_log:
+                        rt = req.get('resource_type', 'unknown')
+                        if rt not in resource_types:
+                            resource_types[rt] = 0
+                        resource_types[rt] += 1
+                    logger.info(f"📡 RESOURCE_TYPES={resource_types}")
+
+                    # Find requests after 25 seconds
+                    requests_after_25s = [r for r in requests_log if r.get('timestamp', 0) > 25.0]
+                    logger.info(f"📡 REQUESTS_AFTER_25S={len(requests_after_25s)}")
+
+                    if requests_after_25s:
+                        logger.info(f"📡 URLS_GENERATING_REQUESTS_AFTER_25S:")
+                        urls_after_25s = {}
+                        for req in requests_after_25s:
+                            url = req.get('url', 'unknown')
+                            if url not in urls_after_25s:
+                                urls_after_25s[url] = 0
+                            urls_after_25s[url] += 1
+
+                        for url, count in sorted(urls_after_25s.items()):
+                            logger.info(f"  [{count}] {url[:150]}")
+
+                    # Check for long-polling, websocket, eventsource, etc
+                    suspicious_patterns = {
+                        'websocket': [],
+                        'eventsource': [],
+                        'beacon': [],
+                        'long_polling': [],
+                        'graphql': [],
+                        'analytics': [],
+                        'tracking': []
+                    }
+
+                    for req in requests_log:
+                        url_lower = req.get('url', '').lower()
+                        rt = req.get('resource_type', '').lower()
+
+                        if 'websocket' in rt or 'ws://' in url_lower or 'wss://' in url_lower:
+                            suspicious_patterns['websocket'].append(req)
+                        elif 'eventsource' in rt:
+                            suspicious_patterns['eventsource'].append(req)
+                        elif 'beacon' in rt or url_lower.endswith('/beacon'):
+                            suspicious_patterns['beacon'].append(req)
+                        elif 'graphql' in url_lower and req.get('timestamp', 0) > 25.0:
+                            suspicious_patterns['graphql'].append(req)
+                        elif 'analytics' in url_lower or 'tracking' in url_lower:
+                            suspicious_patterns['analytics'].append(req)
+                        elif any(x in url_lower for x in ['/poll', '/polling', '/long-poll', '/stream']):
+                            suspicious_patterns['long_polling'].append(req)
+
+                    for pattern, reqs in suspicious_patterns.items():
+                        if reqs:
+                            logger.info(f"📡 {pattern.upper()}_FOUND: {len(reqs)} requests")
+                            for req in reqs[:5]:  # Log first 5
+                                logger.info(f"  {req.get('method')} {req.get('url')[:100]} @ T+{req.get('timestamp', 0):.1f}s")
+
+                    # Log last 50 requests before timeout
+                    logger.info(f"📡 LAST_50_REQUESTS_BEFORE_TIMEOUT:")
+                    last_requests = requests_log[-50:] if len(requests_log) > 50 else requests_log
+                    for idx, req in enumerate(last_requests[-50:], start=max(1, len(requests_log)-49)):
+                        logger.info(f"  [{idx}] {req.get('method')} {req.get('status')} {req.get('resource_type')} {req.get('url')[:100]} @ T+{req.get('timestamp', 0):.1f}s")
 
                     # Continue anyway to see what loaded
                     logger.warning(f"⚠️ Continuing despite timeout...")

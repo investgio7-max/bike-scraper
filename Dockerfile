@@ -25,6 +25,9 @@ ENV PYTHONUNBUFFERED=1
 ENV LOG_LEVEL=INFO
 ENV PORT=8000
 
+# Expose port for Railway
+EXPOSE 8000
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:${PORT}/health || exit 1

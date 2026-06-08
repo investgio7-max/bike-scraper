@@ -398,7 +398,90 @@ class WallapopScraper(BaseScraper):
                     logger.warning(f"⚠️ Continuing despite timeout...")
                 except Exception as e:
                     logger.error(f"❌ GOTO_ERROR: {type(e).__name__}: {str(e)[:200]}")
-                    logger.info(f"📡 REQUESTS_CAPTURED={len(requests_log)}")
+
+                    # === DETAILED NETWORK DIAGNOSTICS (if TimeoutError caught here) ===
+                    if 'TimeoutError' in type(e).__name__:
+                        total_requests = len(requests_log)
+                        logger.info(f"📡 TOTAL_REQUESTS={total_requests}")
+
+                        # Count responses by status
+                        response_statuses = {}
+                        for req in requests_log:
+                            status = req.get('status')
+                            if status not in response_statuses:
+                                response_statuses[status] = 0
+                            response_statuses[status] += 1
+
+                        total_responses = sum(response_statuses.values())
+                        logger.info(f"📡 TOTAL_RESPONSES={total_responses}")
+                        logger.info(f"📡 RESPONSE_STATUSES={response_statuses}")
+
+                        # Analyze resource types
+                        resource_types = {}
+                        for req in requests_log:
+                            rt = req.get('resource_type', 'unknown')
+                            if rt not in resource_types:
+                                resource_types[rt] = 0
+                            resource_types[rt] += 1
+                        logger.info(f"📡 RESOURCE_TYPES={resource_types}")
+
+                        # Find requests after 25 seconds
+                        requests_after_25s = [r for r in requests_log if r.get('timestamp', 0) > 25.0]
+                        logger.info(f"📡 REQUESTS_AFTER_25S={len(requests_after_25s)}")
+
+                        if requests_after_25s:
+                            logger.info(f"📡 URLS_GENERATING_REQUESTS_AFTER_25S:")
+                            urls_after_25s = {}
+                            for req in requests_after_25s:
+                                url = req.get('url', 'unknown')
+                                if url not in urls_after_25s:
+                                    urls_after_25s[url] = 0
+                                urls_after_25s[url] += 1
+
+                            for url, count in sorted(urls_after_25s.items()):
+                                logger.info(f"  [{count}] {url[:150]}")
+
+                        # Check for long-polling, websocket, eventsource, etc
+                        suspicious_patterns = {
+                            'websocket': [],
+                            'eventsource': [],
+                            'beacon': [],
+                            'long_polling': [],
+                            'graphql': [],
+                            'analytics': [],
+                            'tracking': []
+                        }
+
+                        for req in requests_log:
+                            url_lower = req.get('url', '').lower()
+                            rt = req.get('resource_type', '').lower()
+
+                            if 'websocket' in rt or 'ws://' in url_lower or 'wss://' in url_lower:
+                                suspicious_patterns['websocket'].append(req)
+                            elif 'eventsource' in rt:
+                                suspicious_patterns['eventsource'].append(req)
+                            elif 'beacon' in rt or url_lower.endswith('/beacon'):
+                                suspicious_patterns['beacon'].append(req)
+                            elif 'graphql' in url_lower and req.get('timestamp', 0) > 25.0:
+                                suspicious_patterns['graphql'].append(req)
+                            elif 'analytics' in url_lower or 'tracking' in url_lower:
+                                suspicious_patterns['analytics'].append(req)
+                            elif any(x in url_lower for x in ['/poll', '/polling', '/long-poll', '/stream']):
+                                suspicious_patterns['long_polling'].append(req)
+
+                        for pattern, reqs in suspicious_patterns.items():
+                            if reqs:
+                                logger.info(f"📡 {pattern.upper()}_FOUND: {len(reqs)} requests")
+                                for req in reqs[:5]:  # Log first 5
+                                    logger.info(f"  {req.get('method')} {req.get('url')[:100]} @ T+{req.get('timestamp', 0):.1f}s")
+
+                        # Log last 50 requests before timeout
+                        logger.info(f"📡 LAST_50_REQUESTS_BEFORE_TIMEOUT:")
+                        last_requests = requests_log[-50:] if len(requests_log) > 50 else requests_log
+                        for idx, req in enumerate(last_requests[-50:], start=max(1, len(requests_log)-49)):
+                            logger.info(f"  [{idx}] {req.get('method')} {req.get('status')} {req.get('resource_type')} {req.get('url')[:100]} @ T+{req.get('timestamp', 0):.1f}s")
+                    else:
+                        logger.info(f"📡 REQUESTS_CAPTURED={len(requests_log)}")
                     raise
 
                 # === WALLAPOP PAGE INFO ===

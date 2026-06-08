@@ -9,13 +9,15 @@ print("🚀 Starting combined bot+API process...")
 # Start FastAPI in background thread
 def run_api():
     """Run FastAPI server in background"""
+    import os
     print("📡 Starting FastAPI server in background thread...")
     try:
         from bike_scraper.api_main import app
+        from bike_scraper.config import API_HOST, API_PORT
         import uvicorn
         print("✅ Imported FastAPI app")
-        print("🌐 Starting uvicorn on port 8000...")
-        uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+        print(f"🌐 Starting uvicorn on {API_HOST}:{API_PORT}...")
+        uvicorn.run(app, host=API_HOST, port=API_PORT, log_level="info")
     except Exception as e:
         print(f"❌ FastAPI error: {e}")
         import traceback

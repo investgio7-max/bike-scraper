@@ -34,5 +34,5 @@ EXPOSE 8080
 # HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 #     CMD curl -f http://localhost:${PORT}/health || exit 1
 
-# Run FastAPI with Telegram bot on dynamic PORT
-CMD ["sh", "-c", "python -m uvicorn bike_scraper.api_main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+# Run FastAPI + Telegram bot on dynamic PORT
+CMD ["python", "run_api.py"]

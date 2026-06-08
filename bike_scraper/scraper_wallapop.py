@@ -8,6 +8,7 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 import re
 import asyncio
+import os
 from playwright.async_api import async_playwright
 
 from bike_scraper.scraper_base import BaseScraper, ListingData
@@ -19,16 +20,42 @@ logger = get_logger('wallapop')
 
 
 class WallapopScraper(BaseScraper):
-    """Парсер для Wallapop с поддержкой CloakBrowser + Playwright"""
+    """Парсер для Wallapop с поддержкой CloakBrowser + Playwright + Proxy rotation"""
 
-    def __init__(self, use_cloak: bool = True):
+    def __init__(self, use_cloak: bool = True, use_proxy: bool = True):
         super().__init__('wallapop')
         self.base_url = WALLAPOP_SEARCH_URL
         self.use_cloak = use_cloak
+        self.use_proxy = use_proxy
         self.browser = None
         self.context = None
         self.page = None
         self.playwright = None
+        self.proxy_list = self._load_proxies()
+        self.proxy_index = 0
+
+    def _load_proxies(self) -> List[str]:
+        """Загрузить proxies из environment variables"""
+        proxies = []
+        for i in range(1, 4):
+            proxy_var = f"PROXY_{i}"
+            proxy = os.getenv(proxy_var)
+            if proxy:
+                # Format: user:pass@ip:port -> http://user:pass@ip:port
+                if not proxy.startswith("http"):
+                    proxy = f"http://{proxy}"
+                proxies.append(proxy)
+                logger.info(f"✅ Загружен proxy {i}: {proxy.split('@')[1] if '@' in proxy else proxy[:30]}")
+        return proxies
+
+    def _get_next_proxy(self) -> Optional[str]:
+        """Получить следующий proxy из списка (ротация)"""
+        if not self.proxy_list:
+            return None
+        proxy = self.proxy_list[self.proxy_index % len(self.proxy_list)]
+        self.proxy_index += 1
+        logger.debug(f"📍 Используется proxy: {self.proxy_index % len(self.proxy_list) + 1}/{len(self.proxy_list)}")
+        return proxy
 
     async def init_browser(self):
         """Инициализировать браузер (CloakBrowser с humanize или Chromium)"""
@@ -40,17 +67,33 @@ class WallapopScraper(BaseScraper):
             if self.use_cloak:
                 from cloakbrowser import launch_async
 
-                self.browser = await launch_async(headless=True)
+                # Параметры для CloakBrowser с proxy
+                kwargs = {"headless": True}
+                if self.use_proxy and self.proxy_list:
+                    kwargs["proxy"] = self._get_next_proxy()
+
+                self.browser = await launch_async(**kwargs)
                 logger.info("✅ CloakBrowser (stealth) запущен")
             else:
                 self.playwright = await async_playwright().start()
-                self.browser = await self.playwright.chromium.launch(headless=True)
+
+                # Параметры для Chromium с proxy
+                kwargs = {"headless": True}
+                if self.use_proxy and self.proxy_list:
+                    kwargs["proxy"] = {"server": self._get_next_proxy()}
+
+                self.browser = await self.playwright.chromium.launch(**kwargs)
                 logger.info("✅ Chromium запущен")
 
         except Exception as e:
             logger.warning(f"⚠️ CloakBrowser недоступен, используем Chromium: {e}")
             self.playwright = await async_playwright().start()
-            self.browser = await self.playwright.chromium.launch(headless=True)
+
+            kwargs = {"headless": True}
+            if self.use_proxy and self.proxy_list:
+                kwargs["proxy"] = {"server": self._get_next_proxy()}
+
+            self.browser = await self.playwright.chromium.launch(**kwargs)
 
         # Создать страницу
         try:

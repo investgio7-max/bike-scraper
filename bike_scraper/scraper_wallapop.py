@@ -149,11 +149,19 @@ class WallapopScraper(BaseScraper):
 
                 # Парсим HTML
                 soup = BeautifulSoup(html, 'html.parser')
-                # Пробуем несколько селекторов
-                # Ищем индивидуальные карточки, не контейнер сетки
-                listings = soup.find_all('div', class_=lambda x: x and 'ItemCard--' in x)
-                if not listings:
-                    listings = soup.find_all('div', class_=lambda x: x and 'ItemCard' in x)
+                # Ищем карточки объявлений с фильтром: должна содержать ссылку на /item/
+                all_items = soup.find_all('div', class_=lambda x: x and 'ItemCard' in x)
+                listings = []
+                for item in all_items:
+                    # Проверяем что это реальное объявление (не реклама)
+                    link = item.find('a', href=lambda x: x and '/item/' in x)
+                    if link:
+                        listings.append(item)
+
+                if not listings and all_items:
+                    # Fallback: если не нашли /item/, возьмём все ItemCard
+                    listings = all_items
+
                 if not listings:
                     listings = soup.find_all('article')
 

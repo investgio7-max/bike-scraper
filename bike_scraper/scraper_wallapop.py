@@ -150,7 +150,10 @@ class WallapopScraper(BaseScraper):
                 # Парсим HTML
                 soup = BeautifulSoup(html, 'html.parser')
                 # Пробуем несколько селекторов
-                listings = soup.find_all('div', class_=lambda x: x and 'ItemCard' in x)
+                # Ищем индивидуальные карточки, не контейнер сетки
+                listings = soup.find_all('div', class_=lambda x: x and 'ItemCard--' in x)
+                if not listings:
+                    listings = soup.find_all('div', class_=lambda x: x and 'ItemCard' in x)
                 if not listings:
                     listings = soup.find_all('article')
 
@@ -161,11 +164,16 @@ class WallapopScraper(BaseScraper):
                 logger.info(f"📋 Найдено {len(listings)} объявлений на странице {page + 1}")
 
                 # Парсим каждое объявление
-                for listing_elem in listings:
+                for idx, listing_elem in enumerate(listings):
                     if len(all_results) >= max_results:
                         break
 
                     try:
+                        # DEBUG: Log first card HTML on first page
+                        if idx == 0 and page == 0:
+                            html_str = str(listing_elem)[:2000]
+                            logger.info(f"FIRST_CARD_HTML[0:2000]:\n{html_str}")
+
                         listing_data = self._parse_listing_element(listing_elem)
                         if listing_data:
                             all_results.append(listing_data)
@@ -182,7 +190,8 @@ class WallapopScraper(BaseScraper):
                 logger.error(f"❌ Ошибка на странице {page}: {e}")
                 break
 
-        logger.info(f"✅ Найдено {len(all_results)} объявлений")
+        logger.info(f"✅ Найдено {len(all_results)} объявлений из {total_cards_found if 'total_cards_found' in locals() else '?'} карточек")
+        logger.info(f"PARSE_SUMMARY: total_cards={len(listings) if 'listings' in locals() else '?'} | successful_parses={len(all_results)} | failed_parses={len(listings) - len(all_results) if 'listings' in locals() else '?'}")
         return all_results
 
     def search(self, search_term: str, max_results: int = 100) -> List[ListingData]:
@@ -201,13 +210,15 @@ class WallapopScraper(BaseScraper):
             links = element.find_all('a')
             for link in links:
                 href = link.get('href', '')
-                # /item/123456 или /listings/123456
-                match = re.search(r'/(item|listings)/(\d+)', href)
+                # /item/slug-text-123456 (new format) или /item/123456 (old format)
+                # Try new format first: extract trailing numeric ID
+                match = re.search(r'-(\d+)(?:\?|$)', href)
                 if match:
-                    listing_id = match.group(2)
+                    listing_id = match.group(1)
                     break
 
             if not listing_id:
+                logger.warning(f"PARSE FAILED: reason=NO_LISTING_ID | links_found={len(links)} | first_link_href={links[0].get('href', 'NONE') if links else 'NO_LINKS'}")
                 return None
 
             # Название - ищем в разных местах
@@ -231,7 +242,24 @@ class WallapopScraper(BaseScraper):
                     title = first_link.get('title', '') or first_link.text.strip()
 
             if not title or len(title) < 5:
+                logger.warning(f"PARSE FAILED: reason=NO_TITLE | title_found={bool(title)} | title_length={len(title) if title else 0}")
                 return None
+
+            # Цена - ищем в названии в формате "310 €Название..."
+            # Wallapop включает цену в начало названия
+            price_text = ''
+            price_match = re.match(r'^([\d.,]+)\s*€', title)
+            if price_match:
+                price_text = price_match.group(0)
+                # Удаляем цену из названия
+                title = re.sub(r'^([\d.,]+)\s*€\s*', '', title)
+
+            # Если цены в названии не нашли, ищем в остальном тексте
+            if not price_text:
+                all_text = element.get_text()
+                price_match = re.search(r'\b([\d.,]+)\s*€', all_text)
+                if price_match:
+                    price_text = price_match.group(0)
 
             # Очищаем название от артефактов
             title = re.sub(r'^\d+\s*/\s*\d+\s*', '', title)  # Удаляем "1 / 25"
@@ -246,18 +274,10 @@ class WallapopScraper(BaseScraper):
                 else:
                     url = href
 
-            # Цена - ищем текст с €
-            price_text = ''
-            all_text = element.get_text()
-
-            # Найдем первое вхождение цены в формате "€X.XXX"
-            price_match = re.search(r'€\s*([\d.,]+)', all_text)
-            if price_match:
-                price_text = price_match.group(0)
-
             price = normalize_price(price_text)
 
             if not price or price < MIN_PRICE or price > MAX_PRICE:
+                logger.warning(f"PARSE FAILED: reason=BAD_PRICE | price={price} | min={MIN_PRICE} | max={MAX_PRICE}")
                 return None
 
             # Локация - обычно в конце объявления

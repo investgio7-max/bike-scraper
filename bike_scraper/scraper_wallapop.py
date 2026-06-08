@@ -147,6 +147,35 @@ class WallapopScraper(BaseScraper):
                 # Получаем HTML
                 html = await self.page.content()
 
+                # DEBUG: Log page details on first page
+                if page == 0:
+                    page_title = await self.page.title()
+                    final_url = self.page.url
+                    html_length = len(html)
+                    html_first_5000 = html[:5000]
+
+                    logger.info(f"PAGE_TITLE={page_title}")
+                    logger.info(f"FINAL_URL={final_url}")
+                    logger.info(f"HTML_LENGTH={html_length}")
+                    logger.info(f"HTML_FIRST_5000={html_first_5000}")
+
+                    # Count keyword occurrences
+                    count_itemcard = html.count('ItemCard')
+                    count_item_card = html.count('item-card')
+                    count_wallapop = html.count('wallapop')
+                    count_cloudflare = html.count('cloudflare')
+                    count_captcha = html.count('captcha')
+                    count_cookie = html.count('cookie')
+                    count_consent = html.count('consent')
+
+                    logger.info(f"COUNT_ItemCard={count_itemcard}")
+                    logger.info(f"COUNT_item_card={count_item_card}")
+                    logger.info(f"COUNT_wallapop={count_wallapop}")
+                    logger.info(f"COUNT_cloudflare={count_cloudflare}")
+                    logger.info(f"COUNT_captcha={count_captcha}")
+                    logger.info(f"COUNT_cookie={count_cookie}")
+                    logger.info(f"COUNT_consent={count_consent}")
+
                 # Парсим HTML
                 soup = BeautifulSoup(html, 'html.parser')
                 # Ищем карточки объявлений с фильтром: должна содержать ссылку на /item/

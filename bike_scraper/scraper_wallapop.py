@@ -816,16 +816,7 @@ class WallapopScraper(BaseScraper):
                             html_str = str(listing_elem)[:2000]
                             logger.info(f"FIRST_CARD_HTML[0:2000]:\n{html_str}")
 
-                        # DIAGNOSTIC: Track card index for first 5 extractions (minimal)
-                        card_global_idx = len(all_results)  # Global index across pages
-                        if card_global_idx < 5:
-                            logger.warning(f"🔍 DIAGNOSTIC_CARD_{card_global_idx}_START")
-
                         listing_data = self._parse_listing_element(listing_elem)
-
-                        # DIAGNOSTIC: Log result for first 5 cards only
-                        if card_global_idx < 5 and listing_data:
-                            logger.warning(f"🔍 DIAGNOSTIC_CARD_{card_global_idx}: title='{listing_data.title}' | selected_href='{listing_data.url}' | listing_id='{listing_data.listing_id}'")
                         if listing_data:
                             all_results.append(listing_data)
                     except Exception as e:

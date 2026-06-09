@@ -182,7 +182,7 @@ class ProductionScheduler:
                         continue
 
                     # Get real market data
-                    market = analysis.get('market_analysis', {})
+                    market = analysis.get('market_analysis') or {}
 
                     # DIAGNOSTIC: Runtime evidence collection
                     logger.warning(f"🔍 DIAGNOSTIC_BEFORE_GET: listing_title={listing.title}, listing_id={listing.listing_id}")
@@ -238,7 +238,8 @@ class ProductionScheduler:
 
                     # DIAGNOSTIC: Check if session needs rollback
                     if "IntegrityError" in error_type or "duplicate" in str(e).lower():
-                        logger.warning(f"🔍 DIAGNOSTIC_INTEGRITY_ERROR: IntegrityError detected, session.rollback() NOT called")
+                        logger.warning(f"🔍 DIAGNOSTIC_INTEGRITY_ERROR: IntegrityError detected, calling session.rollback()")
+                        self.db_session.rollback()
 
                     self.stats["db_errors"] += 1
                     self.circuit_breaker["database_errors"] += 1

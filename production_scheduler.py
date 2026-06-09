@@ -183,6 +183,12 @@ class ProductionScheduler:
 
                     # Get real market data
                     market = analysis.get('market_analysis', {})
+
+                    # DIAGNOSTIC: Runtime evidence collection
+                    logger.warning(f"🔍 DIAGNOSTIC_BEFORE_GET: listing_title={listing.title}, listing_id={listing.listing_id}")
+                    logger.warning(f"🔍 bike_info type={type(bike_info).__name__}, repr={repr(bike_info)[:100]}, is_none={bike_info is None}")
+                    logger.warning(f"🔍 bike_data type={type(bike_data).__name__}, repr={repr(bike_data)[:200]}, is_none={bike_data is None}")
+
                     confidence = bike_data.get('confidence', 0)
                     discount = market.get('profit_percent', 0)
                     comparables = market.get('comparable_count', 0)
@@ -225,13 +231,21 @@ class ProductionScheduler:
                     self.circuit_breaker["telegram_errors"] = 0
 
                 except Exception as e:
-                    logger.error(f"❌ Error processing listing: {e}")
+                    # DIAGNOSTIC: Log exception type and context
+                    error_type = type(e).__name__
+                    logger.error(f"❌ Error processing listing: {error_type}: {e}")
+                    logger.warning(f"🔍 DIAGNOSTIC_EXCEPTION: error_type={error_type}, listing_title={listing_data.title if listing_data else 'UNKNOWN'}, listing_id={listing_data.listing_id if listing_data else 'UNKNOWN'}")
+
+                    # DIAGNOSTIC: Check if session needs rollback
+                    if "IntegrityError" in error_type or "duplicate" in str(e).lower():
+                        logger.warning(f"🔍 DIAGNOSTIC_INTEGRITY_ERROR: IntegrityError detected, session.rollback() NOT called")
+
                     self.stats["db_errors"] += 1
                     self.circuit_breaker["database_errors"] += 1
                     self.stats["errors_log"].append({
                         "timestamp": datetime.now().isoformat(),
                         "error": str(e),
-                        "type": "db_error"
+                        "type": error_type
                     })
 
             logger.info(f"✅ Cycle complete: {self.stats['total_alerts']} alerts sent this cycle")

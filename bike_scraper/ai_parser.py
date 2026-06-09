@@ -366,42 +366,67 @@ class BikeParser:
         """
         confidence = 0.0
         max_points = 0
+        components = {}
 
         # Бренд (25 точек)
         if bike.brand:
             confidence += 25
+            components['brand'] = (25, True)
+        else:
+            components['brand'] = (25, False)
         max_points += 25
 
         # Модель (20 точек)
         if bike.model:
             confidence += 20
+            components['model'] = (20, True)
+        else:
+            components['model'] = (20, False)
         max_points += 20
 
         # Год (15 точек)
         if bike.year:
             confidence += 15
+            components['year'] = (15, True)
+        else:
+            components['year'] = (15, False)
         max_points += 15
 
         # Размер (15 точек)
         if bike.size:
             confidence += 15
+            components['size'] = (15, True)
+        else:
+            components['size'] = (15, False)
         max_points += 15
 
         # Групсет (15 точек)
         if bike.groupset_brand and bike.groupset_model:
             confidence += 15
+            components['groupset'] = (15, True)
         elif bike.groupset_brand:
             confidence += 10
+            components['groupset'] = (15, 'partial')
+        else:
+            components['groupset'] = (15, False)
         max_points += 15
 
         # Велотип (10 точек)
         if bike.bike_type:
             confidence += 10
+            components['bike_type'] = (10, True)
+        else:
+            components['bike_type'] = (10, False)
         max_points += 10
 
         # Расчитываем процент
         if max_points > 0:
             confidence = (confidence / max_points) * 100
+
+        # AUDIT: Log confidence components
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"🔷 CONFIDENCE_CALC: brand={components['brand']} | model={components['model']} | year={components['year']} | size={components['size']} | groupset={components['groupset']} | bike_type={components['bike_type']} | final={confidence:.1f}%")
 
         return confidence
 

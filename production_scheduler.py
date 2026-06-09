@@ -113,11 +113,6 @@ class ProductionScheduler:
             return
 
         try:
-            # TELEGRAM E2E AUDIT: Check Telegram config at cycle start
-            bot_token_present = os.getenv('TELEGRAM_BOT_TOKEN') is not None
-            chat_id_present = os.getenv('TELEGRAM_CHAT_ID') is not None
-            logger.warning(f"🔷 TELEGRAM_E2E_CONFIG: BOT_TOKEN_PRESENT={'yes' if bot_token_present else 'no'} | CHAT_ID_PRESENT={'yes' if chat_id_present else 'no'} | TELEGRAM_ENABLED={'yes' if (bot_token_present and chat_id_present) else 'no'}")
-
             logger.info("🔍 Starting search cycle...")
 
             # REAL WALLAPOP DATA - Safe test mode with single query
@@ -134,16 +129,9 @@ class ProductionScheduler:
             self.stats["total_listings"] += len(listings)
             logger.info(f"✅ Found {len(listings)} real Wallapop listings")
 
-            # TELEGRAM E2E AUDIT: Log listings returned from scraper
-            listing_ids = [l.listing_id for l in listings]
-            logger.warning(f"🔷 TELEGRAM_E2E_LISTINGS_RETURNED: count={len(listings)} | listing_ids={listing_ids}")
-
             # REAL DATA PROCESSING
             for listing_data in listings:
                 try:
-                    # TELEGRAM E2E AUDIT: Log listing received
-                    logger.warning(f"🔷 TELEGRAM_E2E_LISTING_RECEIVED: listing_id={listing_data.listing_id} | title={listing_data.title} | price={listing_data.price}")
-
                     # Parse bike with AI
                     bike_info = self.parser.parse(
                         title=listing_data.title,
@@ -156,7 +144,6 @@ class ProductionScheduler:
                     if not bike_data:
                         self.stats["total_rejected"] += 1
                         self.stats["reject_reasons"]["parse_failed"] += 1
-                        logger.warning(f"🔷 TELEGRAM_E2E_PARSE_FAILED: listing_id={listing_data.listing_id}")
                         continue
 
                     self.stats["total_parsed"] += 1
@@ -192,14 +179,10 @@ class ProductionScheduler:
                     if not analysis:
                         self.stats["total_rejected"] += 1
                         self.stats["reject_reasons"]["analysis_failed"] += 1
-                        logger.warning(f"🔷 TELEGRAM_E2E_ANALYSIS_FAILED: listing_id={listing_data.listing_id}")
                         continue
 
                     # Get real market data
                     market = analysis.get('market_analysis') or {}
-
-                    # TELEGRAM E2E AUDIT: Log analysis result
-                    logger.warning(f"🔷 TELEGRAM_E2E_ANALYSIS_RESULT: listing_id={listing_data.listing_id} | analysis_exists=yes | market_analysis_exists={'yes' if market else 'no'} | profit_percent={market.get('profit_percent', 0)} | comparable_count={market.get('comparable_count', 0)}")
 
                     # DIAGNOSTIC: Runtime evidence collection
                     logger.warning(f"🔍 DIAGNOSTIC_BEFORE_GET: listing_title={listing.title}, listing_id={listing.listing_id}")
@@ -211,9 +194,6 @@ class ProductionScheduler:
                     comparables = market.get('comparable_count') or 0
                     model = (bike_data.get('model') or '').lower()
 
-                    # TELEGRAM E2E AUDIT: Log alert evaluation inputs
-                    logger.warning(f"🔷 TELEGRAM_E2E_ALERT_EVALUATION: listing_id={listing_data.listing_id} | title={listing_data.title} | confidence={confidence} | discount={discount} | comparables={comparables} | model={model}")
-
                     # Apply HYBRID PRIORITY MODE
                     should_send, reason, tier = check_hybrid_alert(
                         model=model,
@@ -221,12 +201,6 @@ class ProductionScheduler:
                         comparables=comparables,
                         discount=discount
                     )
-
-                    # TELEGRAM E2E AUDIT: Log alert decision
-                    if should_send:
-                        logger.warning(f"🔷 TELEGRAM_E2E_ALERT_DECISION: listing_id={listing_data.listing_id} | eligible=yes | tier={tier}")
-                    else:
-                        logger.warning(f"🔷 TELEGRAM_E2E_ALERT_DECISION: listing_id={listing_data.listing_id} | eligible=no | rejection_reason={reason}")
 
                     if not should_send:
                         self.stats["total_rejected"] += 1
@@ -252,14 +226,6 @@ class ProductionScheduler:
 
                     self.stats["sent_alerts"].append(deal)
 
-                    # TELEGRAM E2E AUDIT: Log Telegram send attempt
-                    message = f"🚨 {deal['bike_name']}\n€{listing.price} ({discount:.1f}% off)\n{listing.url}"
-                    logger.warning(f"🔷 TELEGRAM_E2E_SEND_ATTEMPT: listing_id={listing.listing_id} | title={listing.title} | message_length={len(message)} | chat_id=CHECK_ENV")
-
-                    # NOTE: Actual Telegram API call would go here
-                    # For now, logging only
-                    logger.warning(f"🔷 TELEGRAM_E2E_SEND_STATUS: listing_id={listing.listing_id} | status=PENDING | reason=NO_TELEGRAM_INTEGRATION")
-
                     tier_badge = "🔥 TIER 1" if tier == "tier_1" else "TIER 2"
                     logger.info(f"📤 Alert sent: {deal['bike_name']} - €{listing.price} ({discount:.1f}% off) [{tier_badge}]")
                     self.circuit_breaker["telegram_errors"] = 0
@@ -282,9 +248,6 @@ class ProductionScheduler:
                         "error": str(e),
                         "type": error_type
                     })
-
-            # TELEGRAM E2E AUDIT: Final summary
-            logger.warning(f"🔷 TELEGRAM_E2E_FINAL_SUMMARY: listings_found={self.stats['total_listings']} | listings_analyzed={self.stats['total_parsed']} | alerts_eligible={self.stats['total_deals']} | alerts_sent={self.stats['total_alerts']} | telegram_errors={self.circuit_breaker.get('telegram_errors', 0)}")
 
             logger.info(f"✅ Cycle complete: {self.stats['total_alerts']} alerts sent this cycle")
 

@@ -57,9 +57,6 @@ class AIBikeParser:
         # Начинаем с текстового парсинга
         bike = self.text_parser.parse(title, description, images or [])
 
-        # AUDIT: Log initial parsing results
-        logger.warning(f"🔷 PARSE_INITIAL: title={title[:100]} | brand={bike.brand} | model={bike.model} | year={bike.year} | size={bike.size} | bike_type={bike.bike_type} | groupset_brand={bike.groupset_brand} | groupset_model={bike.groupset_model}")
-
         # Если есть изображения и нужно их анализировать
         if analyze_images and images and self.image_analyzer:
             logger.info(f"📸 Анализирую {len(images)} изображение(й)")

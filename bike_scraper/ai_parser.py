@@ -423,11 +423,6 @@ class BikeParser:
         if max_points > 0:
             confidence = (confidence / max_points) * 100
 
-        # AUDIT: Log confidence components
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.warning(f"🔷 CONFIDENCE_CALC: brand={components['brand']} | model={components['model']} | year={components['year']} | size={components['size']} | groupset={components['groupset']} | bike_type={components['bike_type']} | final={confidence:.1f}%")
-
         return confidence
 
 

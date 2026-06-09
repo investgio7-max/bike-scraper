@@ -167,12 +167,6 @@ class BikeParser:
         # Парсим характеристики из текста
         bike.brand = self._extract_brand(full_text)
         bike.model = self._extract_model(full_text)
-
-        # AUDIT: Log brand/model extraction
-        import logging
-        audit_logger = logging.getLogger(__name__)
-        audit_logger.warning(f"🔷 BRAND_MODEL_TRACE: title={title[:80]} | extracted_brand={bike.brand} | extracted_model={bike.model} | full_text_brands_check={any(b.lower() in full_text for b in self.brands)}")
-
         bike.version = self._extract_version(full_text)
         bike.year = self._extract_year(full_text, title)
         bike.bike_type = self._extract_bike_type(full_text)

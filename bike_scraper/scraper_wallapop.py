@@ -811,29 +811,12 @@ class WallapopScraper(BaseScraper):
                         break
 
                     try:
-                        # DEBUG: Log first card HTML on first page
-                        if idx == 0 and page == 0:
-                            html_str = str(listing_elem)[:2000]
-                            logger.info(f"FIRST_CARD_HTML[0:2000]:\n{html_str}")
-
                         listing_data = self._parse_listing_element(listing_elem)
                         if listing_data:
-                            # FORENSIC: Check for duplicates BEFORE append
-                            existing_count = sum(1 for r in all_results if r.listing_id == listing_data.listing_id)
-                            if len(all_results) < 20:
-                                logger.warning(f"🔍 APPEND_TRACE: listing_id={listing_data.listing_id} | title='{listing_data.title}' | current_count={len(all_results)} | already_exists={existing_count > 0} | existing_with_same_id={existing_count}")
-
                             all_results.append(listing_data)
                     except Exception as e:
                         logger.warning(f"⚠️ Ошибка парсинга объявления: {e}")
                         continue
-
-                # FORENSIC: Page summary before moving to next page
-                page_listing_ids = [r.listing_id for r in all_results]
-                unique_on_page = len(set(page_listing_ids))
-                duplicates_on_page = len(page_listing_ids) - unique_on_page
-                if page == 0 or len(all_results) <= 20:
-                    logger.warning(f"🔍 PAGE_SUMMARY: page={page} | results_added={len(all_results)} | unique_ids={unique_on_page} | duplicates={duplicates_on_page} | total_so_far={len(all_results)}")
 
                 page += 1
 
@@ -844,36 +827,7 @@ class WallapopScraper(BaseScraper):
                 logger.error(f"❌ Ошибка на странице {page}: {e}")
                 break
 
-        # FORENSIC: Final summary before return
-        all_listing_ids = [r.listing_id for r in all_results]
-        unique_ids = len(set(all_listing_ids))
-        duplicate_ids = len(all_listing_ids) - unique_ids
-        first_20_ids = all_listing_ids[:20]
-
-        logger.warning(f"🔍 TOTAL_RESULTS={len(all_results)}")
-        logger.warning(f"🔍 FIRST_20_LISTING_IDS={first_20_ids}")
-        logger.warning(f"🔍 UNIQUE_LISTING_IDS_COUNT={unique_ids}")
-        logger.warning(f"🔍 DUPLICATE_LISTING_IDS_COUNT={duplicate_ids}")
-
-        # FORENSIC: Per-result details for first 20
-        for idx, result in enumerate(all_results[:20]):
-            logger.warning(f"🔍 RESULT_INDEX={idx} | listing_id={result.listing_id} | title='{result.title}' | url='{result.url}' | object_id={id(result)}")
-
-        if duplicate_ids > 0:
-            from collections import Counter
-            id_counts = Counter(all_listing_ids)
-            duplicates = {lid: count for lid, count in id_counts.items() if count > 1}
-            first_dup_id = list(duplicates.keys())[0]
-            first_dup_indexes = [i for i, lid in enumerate(all_listing_ids) if lid == first_dup_id]
-            logger.warning(f"🔍 DO_DUPLICATES_EXIST_IN_ALL_RESULTS=yes")
-            logger.warning(f"🔍 FIRST_DUPLICATE_LISTING_ID={first_dup_id}")
-            logger.warning(f"🔍 FIRST_DUPLICATE_COUNT={duplicates[first_dup_id]}")
-            logger.warning(f"🔍 FIRST_DUPLICATE_INDEXES={first_dup_indexes}")
-        else:
-            logger.warning(f"🔍 DO_DUPLICATES_EXIST_IN_ALL_RESULTS=no")
-
-        logger.info(f"✅ Найдено {len(all_results)} объявлений из {total_cards_found if 'total_cards_found' in locals() else '?'} карточек")
-        logger.info(f"PARSE_SUMMARY: total_cards={len(listings) if 'listings' in locals() else '?'} | successful_parses={len(all_results)} | failed_parses={len(listings) - len(all_results) if 'listings' in locals() else '?'}")
+        logger.info(f"✅ Найдено {len(all_results)} объявлений")
         return all_results
 
     def search(self, search_term: str, max_results: int = 100) -> List[ListingData]:

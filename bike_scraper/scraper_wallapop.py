@@ -218,6 +218,9 @@ class WallapopScraper(BaseScraper):
         logger.info(f"🔍 Ищу '{search_term}' на Wallapop (CloakBrowser)...")
 
         all_results = []
+        seen_listing_ids = set()
+        raw_items_processed = 0
+        duplicates_skipped = 0
         page = 0
 
         while len(all_results) < max_results:
@@ -813,7 +816,19 @@ class WallapopScraper(BaseScraper):
                     try:
                         listing_data = self._parse_listing_element(listing_elem)
                         if listing_data:
-                            all_results.append(listing_data)
+                            raw_items_processed += 1
+                            # DEDUP: Check if we've seen this listing_id before
+                            already_seen = listing_data.listing_id in seen_listing_ids
+                            current_seen_count = sum(1 for lid in seen_listing_ids if lid == listing_data.listing_id)
+
+                            logger.warning(f"🔍 DEDUP_CHECK: listing_id={listing_data.listing_id} | title='{listing_data.title}' | already_seen={already_seen} | current_seen_count={current_seen_count}")
+
+                            if not already_seen:
+                                seen_listing_ids.add(listing_data.listing_id)
+                                all_results.append(listing_data)
+                            else:
+                                duplicates_skipped += 1
+                                logger.warning(f"🔍 DEDUP_SKIPPED: listing_id={listing_data.listing_id} | title='{listing_data.title}'")
                     except Exception as e:
                         logger.warning(f"⚠️ Ошибка парсинга объявления: {e}")
                         continue
@@ -826,6 +841,9 @@ class WallapopScraper(BaseScraper):
             except Exception as e:
                 logger.error(f"❌ Ошибка на странице {page}: {e}")
                 break
+
+        # DEDUP: Final summary
+        logger.warning(f"🔍 FINAL_DEDUP_SUMMARY: raw_items_processed={raw_items_processed} | unique_listing_ids={len(seen_listing_ids)} | duplicates_skipped={duplicates_skipped} | final_results_returned={len(all_results)}")
 
         logger.info(f"✅ Найдено {len(all_results)} объявлений")
         return all_results

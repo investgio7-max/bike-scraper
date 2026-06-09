@@ -222,8 +222,10 @@ class WallapopScraper(BaseScraper):
         raw_items_processed = 0
         duplicates_skipped = 0
         page = 0
+        consecutive_no_new_items = 0
+        max_pages = 20  # Prevent infinite loops
 
-        while len(all_results) < max_results:
+        while len(all_results) < max_results and page < max_pages:
             try:
                 # URL с параметрами поиска
                 url = f"{self.base_url}?keywords={search_term.replace(' ', '+')}&start={page * 50}"
@@ -808,6 +810,9 @@ class WallapopScraper(BaseScraper):
 
                 logger.info(f"📋 Найдено {len(listings)} объявлений на странице {page + 1}")
 
+                # Track if this page adds any new items
+                items_before = len(all_results)
+
                 # Парсим каждое объявление
                 for idx, listing_elem in enumerate(listings):
                     if len(all_results) >= max_results:
@@ -832,6 +837,16 @@ class WallapopScraper(BaseScraper):
                     except Exception as e:
                         logger.warning(f"⚠️ Ошибка парсинга объявления: {e}")
                         continue
+
+                # DEDUP: Check if page added any new items
+                items_after = len(all_results)
+                if items_after == items_before:
+                    consecutive_no_new_items += 1
+                    if consecutive_no_new_items >= 3:
+                        logger.warning(f"🔍 DEDUP_BREAK: No new items on last 3 pages, stopping scraper")
+                        break
+                else:
+                    consecutive_no_new_items = 0
 
                 page += 1
 

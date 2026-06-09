@@ -133,12 +133,13 @@ class ProductionScheduler:
             for listing_data in listings:
                 try:
                     # Parse bike with AI
-                    bike_data = self.parser.parse(
+                    bike_info = self.parser.parse(
                         title=listing_data.title,
                         description=listing_data.description or "",
                         images=listing_data.images or [],
                         analyze_images=False
                     )
+                    bike_data = bike_info.to_dict()
 
                     if not bike_data:
                         self.stats["total_rejected"] += 1

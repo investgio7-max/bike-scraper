@@ -189,10 +189,10 @@ class ProductionScheduler:
                     logger.warning(f"🔍 bike_info type={type(bike_info).__name__}, repr={repr(bike_info)[:100]}, is_none={bike_info is None}")
                     logger.warning(f"🔍 bike_data type={type(bike_data).__name__}, repr={repr(bike_data)[:200]}, is_none={bike_data is None}")
 
-                    confidence = bike_data.get('confidence', 0)
-                    discount = market.get('profit_percent', 0)
-                    comparables = market.get('comparable_count', 0)
-                    model = bike_data.get('model', '').lower()
+                    confidence = bike_data.get('confidence') or 0
+                    discount = market.get('profit_percent') or 0
+                    comparables = market.get('comparable_count') or 0
+                    model = (bike_data.get('model') or '').lower()
 
                     # Apply HYBRID PRIORITY MODE
                     should_send, reason, tier = check_hybrid_alert(
@@ -212,10 +212,10 @@ class ProductionScheduler:
                     self.stats["total_alerts"] += 1
 
                     deal = {
-                        "bike_name": f"{bike_data.get('brand', 'Unknown')} {bike_data.get('model', 'Unknown')}",
+                        "bike_name": f"{bike_data.get('brand') or 'Unknown'} {bike_data.get('model') or 'Unknown'}",
                         "listing_id": listing.listing_id,
                         "price": listing.price,
-                        "market_price": market.get('market_median', 0),
+                        "market_price": market.get('market_median') or 0,
                         "discount_percent": discount,
                         "confidence": confidence,
                         "comparables": comparables,
